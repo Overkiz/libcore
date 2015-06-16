@@ -1,0 +1,15 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: @PACKAGE_NAME@
+Version: @PACKAGE_VERSION@
+Description: @PKGCONFIG_DESCRIPTION@
+URL: @PKGCONFIG_URL@
+Requires: @PKGCONFIG_REQUIRES@
+Requires.private: @PKGCONFIG_PRIVATE_REQUIRES@
+Conflicts: @PKGCONFIG_CONFLICTS@
+Libs: @PKGCONFIG_LIBDIRS@ @PKGCONFIG_LIBS@
+Libs.private: @PKGCONFIG_PRIVATE_LIBS@
+Cflags: @PKGCONFIG_INCDIRS@ @PKGCONFIG_DEFS@

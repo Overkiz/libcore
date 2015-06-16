@@ -1,0 +1,8 @@
+Originaly created by Boris Brezillon in 2008.
+
+Boris Brezillon   first version of all files except filesystem.
+Jéremie Rapin     filesystem module, and erro exceptions.
+Antoine Aubert    coroutinesless tasks, project Maintenance.
+Gaël Portay       project Maintenance.
+Baptiste Ramus    project Maintenance.
+Kévin Raymond     project Maintenance.
