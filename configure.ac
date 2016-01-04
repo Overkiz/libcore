@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.68])
-AC_INIT([com.kizos.libcore], [1.6.0])
+AC_INIT([com.kizos.libcore], [1.6.1])
 AC_CANONICAL_HOST
 AC_CONFIG_HEADERS([config.h])
 

@@ -33,11 +33,10 @@ namespace Overkiz
     {
       struct itimerspec max = { { LONG_MAX, LONG_MAX }, { 0, 0 } };
       fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
-      events = EPOLLIN;
       timerfd_settime(fd, TFD_TIMER_ABSTIME | TFD_TIMER_CANCEL_ON_SET, &max,
                       NULL);
       check();
-      Watcher::start();
+      Watcher::modify(EPOLLIN);
     }
 
     Real::Manager::~Manager()
@@ -47,23 +46,25 @@ namespace Overkiz
     void Real::Manager::check()
     {
       int tmp = 0;
+      bool ret;
       #ifdef RTC_VL_READ
       int rtc = open("/dev/rtc", O_RDONLY);
-      ioctl(rtc, RTC_VL_READ, &tmp);
+      int res = ioctl(rtc, RTC_VL_READ, &tmp);
 
-      if(tmp)
+      if(tmp || res < 0)
       {
-        reliable = false;
+        ret = false;
       }
       else
       {
-        reliable = true;
+        ret = true;
       }
 
       close(rtc);
       #else
-      reliable = true;
+      ret = true;
       #endif
+      reliable = ret;
     }
 
     void Real::Manager::start(Real *timer)
@@ -103,6 +104,7 @@ namespace Overkiz
         timers.push_back(timer);
       }
 
+      Watcher::start();
       reschedule();
     }
 
@@ -122,7 +124,14 @@ namespace Overkiz
         }
       }
 
-      reschedule();
+      if(timers.size())
+      {
+        reschedule();
+      }
+      else
+      {
+        Watcher::disable();
+      }
     }
 
     void Real::Manager::reschedule()
@@ -204,7 +213,14 @@ namespace Overkiz
           }
         }
 
-        reschedule();
+        if(timers.size())
+        {
+          reschedule();
+        }
+        else
+        {
+          Watcher::disable();
+        }
       }
     }
 
@@ -399,8 +415,7 @@ namespace Overkiz
     Monotonic::Manager::Manager()
     {
       fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
-      events = EPOLLIN;
-      Watcher::start();
+      Watcher::modify(EPOLLIN);
     }
 
     Monotonic::Manager::~Manager()
@@ -434,6 +449,7 @@ namespace Overkiz
         timers.push_back(timer);
       }
 
+      Watcher::start();
       reschedule();
     }
 
@@ -454,7 +470,14 @@ namespace Overkiz
         }
       }
 
-      reschedule();
+      if(timers.size())
+      {
+        reschedule();
+      }
+      else
+      {
+        Watcher::disable();
+      }
     }
 
     void Monotonic::Manager::reschedule()
@@ -519,7 +542,14 @@ namespace Overkiz
           }
         }
 
-        reschedule();
+        if(timers.size())
+        {
+          reschedule();
+        }
+        else
+        {
+          Watcher::disable();
+        }
       }
     }
 
@@ -582,6 +612,8 @@ namespace Overkiz
 
     void Monotonic::start()
     {
+      disable();
+
       if(relative == true)
       {
         offset = Time::Monotonic::now();

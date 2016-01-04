@@ -13,6 +13,7 @@ public:
     Overkiz::Signal::Manager::add(SIGINT, this);
     Overkiz::Signal::Manager::add(SIGTERM, this);
     Overkiz::Signal::Manager::add(SIGABRT, this);
+    Overkiz::Signal::Manager::add(SIGUSR1, this);
   }
 
   virtual ~SignalHandler()
@@ -26,13 +27,20 @@ public:
     if(signal.info.ssi_signo == SIGINT)
     {
       OVK_NOTICE("Signal caught: %d", signal.info.ssi_signo);
+      exit(signal.info.ssi_signo);
+    }
+    else if(signal.info.ssi_signo == SIGUSR1)
+    {
+      OVK_NOTICE("Signal caught: %d", signal.info.ssi_signo);
+      Overkiz::Signal::Manager::remove(SIGINT, this);
+      Overkiz::Signal::Manager::remove(SIGTERM, this);
+      Overkiz::Signal::Manager::remove(SIGABRT, this);
+      Overkiz::Signal::Manager::remove(SIGUSR1, this);
     }
     else
     {
       OVK_CRITICAL("Signal caught:%d", signal.info.ssi_signo);
     }
-
-    exit(signal.info.ssi_signo);
   }
 };
 

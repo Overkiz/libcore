@@ -24,6 +24,23 @@ namespace Overkiz
   {
   public:
 
+    class Exception : public Overkiz::Exception
+    {
+    public:
+      Exception()
+      {
+      }
+
+      virtual ~Exception()
+      {
+      }
+
+      const char *getId() const
+      {
+        return "com.overkiz.Framework.Core.Coroutine.InvalidException";
+      }
+    };
+
     /**
      * Status of the coroutine
      */

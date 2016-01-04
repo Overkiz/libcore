@@ -28,6 +28,8 @@ namespace Overkiz
 
     static Shared::Pointer<Process> get();
 
+    static int vsystem(const char* command);
+
   private:
 
     Process();

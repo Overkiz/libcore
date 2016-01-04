@@ -18,7 +18,8 @@ Compiling
 
 Testing
 =======
-    g++ examples/bareminimum.cpp -std=gnu++11 -lCore
+    g++ examples/bareminimum.cpp -std=gnu++11 -lCore -I ../include -o bareminimum
+    OVK_LOG_LVL=6 ./bareminimum
 
 
 Contributing

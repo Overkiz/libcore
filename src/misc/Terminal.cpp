@@ -19,6 +19,8 @@ namespace Overkiz
   namespace Terminal
   {
 
+#define IS_NOT_OPEN -1
+
     namespace Exception
     {
 
@@ -123,7 +125,7 @@ namespace Overkiz
     {
       flags = 0;
       delegate = NULL;
-      this->fd = -1;
+      this->fd = IS_NOT_OPEN;
       currentStatus = 0;
       waitStatus = 0;
       memset(&config, 0, sizeof(struct termios));
@@ -131,10 +133,7 @@ namespace Overkiz
 
     Base::~Base()
     {
-      if(this->fd >= 0)
-      {
-        this->close();
-      }
+      this->close();
     }
 
     int Base::wait(int status)
@@ -160,6 +159,7 @@ namespace Overkiz
 
       if((this->fd = ::open(this->path.c_str(), this->flags)) < 0)
       {
+        this->fd = IS_NOT_OPEN;
         throw Exception::Open(errno);
       }
 
@@ -172,9 +172,12 @@ namespace Overkiz
     {
       stop();
 
+      if(this->fd == IS_NOT_OPEN)
+        return;
+
       if(::close(this->fd) == 0)
       {
-        this->fd = -1;
+        this->fd = IS_NOT_OPEN;
         currentStatus = 0;
       }
       else
@@ -314,7 +317,7 @@ namespace Overkiz
         }
       }
 
-      if(dataRead < size)
+      if(dataRead < (ssize_t)size)
       {
         currentStatus &= ~Stream::INPUT_READY;
       }

@@ -1,24 +1,30 @@
 #include <kizbox/framework/core/Log.h>
 #include <kizbox/framework/core/Poller.h>
 #include <kizbox/framework/core/Shared.h>
-#include <kizbox/framework/core/Timer.h>
+#include <kizbox/framework/core/Event.h>
 
 //Timer implementation using poller and timerfd
-class Timer : public Overkiz::Timer::Monotonic
+class Event : public Overkiz::Event
 {
 public:
 
-  Timer()
+  Event()
   {
   }
 
-  virtual ~Timer()
+  virtual ~Event()
   {
   }
 
-  void expired(const Overkiz::Time::Monotonic& time)
+  void receive(uint64_t numberOfEvents)
   {
-    printf("Timer expired.\n");
+    printf("Event received. %lu\n", numberOfEvents);
+
+    if(numberOfEvents < 2)
+    {
+      send();
+      send();
+    }
   }
 
 };
@@ -29,9 +35,8 @@ int main(int argc, char *argv[])
   OVK_INFO("Starting useless application.");
   //Get main loop
   Overkiz::Shared::Pointer< Overkiz::Poller > & poller = Overkiz::Poller::get(false); //Using coroutine or not
-  Timer timer;
-  timer.setTime(Overkiz::Time::Elapsed{2,0}, true);
-  timer.start();
+  Event evt;
+  evt.send();
   poller->loop();
 }
 

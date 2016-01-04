@@ -8,6 +8,7 @@
 #include <sys/wait.h>
 
 #include <kizbox/framework/core/Errno.h>
+#include <kizbox/framework/core/Log.h>
 #include "Process.h"
 
 namespace Overkiz
@@ -96,6 +97,35 @@ namespace Overkiz
     proc = current;
     lock.release();
     return proc;
+  }
+
+  int Process::vsystem(const char* command)
+  {
+    //Vfork breaks POSIX compliant (POS33-C)
+    pid_t pid = 0;
+    int status = EXIT_FAILURE;
+    OVK_DEBUG("System run %s.", command);
+    pid = vfork();
+
+    if(pid == -1)
+    {
+      OVK_ERROR("System call failed. Failed to run \"%s\"! (%s)", command, strerror(errno));
+    }
+    else if(pid == 0) /* child */
+    {
+      if(execl("/bin/sh", "sh", "-c", command, (char *) 0) == -1)
+      {
+        OVK_ERROR("System call failed. Failed to run \"%s\"! (%s)", command, strerror(errno));
+      }
+
+      _exit(1);  /* in case execve() fails */
+    }
+    else
+    {
+      waitpid(pid, &status, 0);
+    }
+
+    return status;
   }
 
   Thread::Lock Process::lock;

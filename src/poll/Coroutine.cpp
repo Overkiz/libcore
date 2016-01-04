@@ -16,6 +16,7 @@ extern "C" {
   #endif
 }
 
+#include "Log.h"
 #include "Coroutine.h"
 
 #ifndef MPROTECT_SIZE
@@ -79,12 +80,13 @@ namespace Overkiz
 
     if(stack.base)
     {
+      munmap(stack.base, size);
+
       if(state != Status::STOPPED)
       {
-        throw;
+        OVK_ERROR("Coroutine destroyed while running.");
+        throw Coroutine::Exception();
       }
-
-      munmap(stack.base, size);
     }
   }
 
@@ -92,14 +94,14 @@ namespace Overkiz
   {
     if(!coro->stack.base)
     {
-      fprintf(stderr, "Coroutine not initialized\n");
-      throw;
+      OVK_ERROR("Coroutine not initialized. Couldn't resume.");
+      throw Coroutine::Exception();
     }
 
     if(coro->state != Status::STOPPED && coro->state != Status::PAUSED)
     {
-      fprintf(stderr, "Coroutine is running\n");
-      throw;
+      OVK_WARNING("Coroutine is already running. Couldn't resume.");
+      throw Coroutine::Exception();
     }
 
     coro->caller = self();
@@ -132,8 +134,8 @@ namespace Overkiz
     }
     else
     {
-      fprintf(stderr, "Coroutine not supported\n");
-      throw;
+      OVK_ERROR("Coroutine not supported.");
+      throw Coroutine::Exception();
     }
   }
 

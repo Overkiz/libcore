@@ -131,7 +131,7 @@ namespace Overkiz
       buffer[LOG_MAX_MESSAGE_SIZE - 4] = '.';
 
       if(strlen(buffer) > 0)
-        syslog(LOG_MAKEPRI(_facility, priority), buffer, "%s");
+        syslog(LOG_MAKEPRI(_facility, priority), "%s", buffer);
 
       if(!(priority <= _printLevel
            && (_printLevel < OVK_SILENT && _printLevel > OVK_UNKNOWN_PRIORITY)))

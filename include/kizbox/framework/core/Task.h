@@ -30,6 +30,10 @@ namespace Overkiz
     {
     public:
 
+      virtual ~IManager()
+      {
+      }
+
       /**
        * Resume or launch a given task.
        *

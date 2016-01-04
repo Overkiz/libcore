@@ -205,6 +205,7 @@ namespace Overkiz
         newScope = PTHREAD_PROCESS_SHARED;
         break;
 
+      default:
       case SCOPE_PROCESS:
         newScope = PTHREAD_PROCESS_PRIVATE;
         break;

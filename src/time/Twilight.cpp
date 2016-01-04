@@ -6,22 +6,26 @@
 
 #include <math.h>
 #include <stdio.h>
-
+#include "Log.h"
 #include "Twilight.h"
 
 namespace Overkiz
 {
-#define SUN_OBLIQUITY           0.40910
-#define CIVIL_TWILIGHT_ANGLE    (-6.0*M_PI/180)
-#define TWILIGHT_ANGLE          CIVIL_TWILIGHT_ANGLE
-#define E                       0.01671
-#define C1                      (E*2 - E*E*E/4)
-#define C2                      (E*E*5/4)
-#define C3                      (E*E*E*13/12)
-#define Y                       tan(SUN_OBLIQUITY/2)
-#define R1                      (-Y*Y)
-#define R2                      (Y*Y*Y*Y/2)
-#define R3                      (-Y*Y*Y*Y*Y*Y/3)
+
+
+#define SOLAR_TWILIGHT_ANGLE         (-(50.0/60)*2*M_PI/360) // 50' below horizon (34' refraction + 16' sun radius)
+#define CIVIL_TWILIGHT_ANGLE         (-6.0*M_PI/180)         // 6°  below horizon
+#define NAUTICAL_TWILIGHT_ANGLE      (-12.0*M_PI/180)        // 12° below horizon
+#define ASTRONOMICAL_TWILIGHT_ANGLE  (-18.0*M_PI/180)        // 18° below horizon
+#define SUN_OBLIQUITY                (0.40910)
+#define E                            (0.01671)
+#define C1                           (E*2 - E*E*E/4)
+#define C2                           (E*E*5/4)
+#define C3                           (E*E*E*13/12)
+#define Y                            (tan(SUN_OBLIQUITY/2))
+#define R1                           (-Y*Y)
+#define R2                           (Y*Y*Y*Y/2)
+#define R3                           (-Y*Y*Y*Y*Y*Y/3)
 
   double Twilight::solarDeclination(const Date::Relative::Year::Day& year)
   {
@@ -41,10 +45,38 @@ namespace Overkiz
   }
 
   double Twilight::sunHourAngle(const Date::Relative::Year::Day& year,
-                                double latitude)
+                                double latitude, const Angle  angle)
   {
+    double twilightAngle;
+
+    switch(angle)
+    {
+      case SOLAR :
+        twilightAngle = SOLAR_TWILIGHT_ANGLE;
+        break;
+
+      case NAUTICAL :
+        twilightAngle = NAUTICAL_TWILIGHT_ANGLE;
+        break;
+
+      case ASTRONOMICAL :
+        twilightAngle = ASTRONOMICAL_TWILIGHT_ANGLE;
+        break;
+
+      case CIVIL:
+        twilightAngle = CIVIL_TWILIGHT_ANGLE;
+        break;
+
+      default:
+      {
+        OVK_WARNING("%s> unknown angle \"%d\"\n", __FUNCTION__, angle);
+        twilightAngle = CIVIL_TWILIGHT_ANGLE;
+        break;
+      }
+    }
+
     double solarDec = solarDeclination(year);
-    double q = (TWILIGHT_ANGLE - sin(solarDec) * sin(latitude))
+    double q = (twilightAngle - sin(solarDec) * sin(latitude))
                / (cos(solarDec) * cos(latitude));
 
     if(q < -1 || q > 1)
@@ -79,11 +111,11 @@ namespace Overkiz
   }
 
   Date::UTC Twilight::dawn(const Date::Absolute& date, double latitude,
-                           double longitude)
+                           double longitude, const Angle angle)
   {
     Date::Absolute ret = date;
     Date::Relative::Year::Day year = date;
-    double sHA = sunHourAngle(year, latitude * M_PI / 180);
+    double sHA = sunHourAngle(year, latitude * M_PI / 180, angle);
     double ET = equationOfTime(year);
     double result = 12.0 - sHA * 180 / 15 / M_PI + ET / 60 - longitude / 15;
     convert(ret, result);
@@ -91,15 +123,48 @@ namespace Overkiz
   }
 
   Date::UTC Twilight::dusk(const Date::Absolute& date, double latitude,
-                           double longitude)
+                           double longitude, const Angle angle)
   {
     Date::Absolute ret = date;
     Date::Relative::Year::Day year = date;
-    double sHA = sunHourAngle(year, latitude * M_PI / 180);
+    double sHA = sunHourAngle(year, latitude * M_PI / 180, angle);
     double ET = equationOfTime(year);
     double result = 12 + sHA * 180 / 15 / M_PI + ET / 60 - longitude / 15;
     convert(ret, result);
     return ret;
   }
+
+
+  const Twilight::Angle Twilight::getAngleFromString(const std::string& angle)
+  {
+    auto it =  AngleMap.find(angle);
+
+    if(it != AngleMap.end())
+      return (it->second);
+
+    OVK_WARNING("%s> unknown angle \"%s\"", __FUNCTION__, angle.c_str());
+    return (DEFAULT_ANGLE);
+  }
+
+  const std::string Twilight::getStringFromAngle(const Twilight::Angle angle)
+  {
+    for(auto it = AngleMap.begin(); it != AngleMap.end(); it++)
+    {
+      if(it->second == angle)
+        return (it->first);
+    }
+
+    OVK_WARNING("%s> unknown angle \"%d\"", __FUNCTION__, angle);
+    return getStringFromAngle(DEFAULT_ANGLE);
+  }
+
+  const std::map<const std::string,const Twilight::Angle>Twilight::AngleMap=
+  {
+    {"solar", SOLAR},
+    {"civil", CIVIL},
+    {"nautical", NAUTICAL},
+    {"astronomical", ASTRONOMICAL},
+  };
+
 
 }

@@ -31,8 +31,6 @@ namespace Overkiz
     }
 
     fd = signalfd(-1, &mask, SFD_NONBLOCK | SFD_CLOEXEC);
-    modify(EPOLLIN);
-    start();
   }
 
   Signal::Manager::~Manager()
@@ -45,7 +43,7 @@ namespace Overkiz
 
     if(evts & EPOLLIN)
     {
-      for(;;)
+      while(fd > 0)
       {
         ssize_t size = read(fd, &signal.info, sizeof(signal.info));
 
@@ -77,6 +75,12 @@ namespace Overkiz
     {
       manager = Shared::Pointer<Manager>::create();
       key = manager;
+    }
+
+    if(sigisemptyset(&manager->mask) != 0)
+    {
+      manager->modify(EPOLLIN);
+      manager->start();
     }
 
     std::set<Handler *>& handlers = manager->handlers[signal];
@@ -116,6 +120,11 @@ namespace Overkiz
     if(manager->handlers->size() == 0)
     {
       key = Shared::Pointer<Manager>();
+    }
+
+    if(sigisemptyset(&manager->mask) == 0)
+    {
+      manager->stop();
     }
   }
 

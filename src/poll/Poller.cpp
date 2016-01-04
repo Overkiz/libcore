@@ -194,6 +194,9 @@ namespace Overkiz
 
         state = WAITING;
       }
+
+      if(!count)
+        OVK_NOTICE("Any fd to watch. Exit poll loop.");
     }
 
     state = STOPPED;

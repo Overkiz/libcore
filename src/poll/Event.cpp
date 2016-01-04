@@ -60,8 +60,7 @@ namespace Overkiz
   {
     setStackSize(2 * 4096);
     fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    events = EPOLLIN;
-    start();
+    modify(EPOLLIN);
   }
 
   Event::Manager::~Manager()
@@ -70,6 +69,7 @@ namespace Overkiz
 
   void Event::Manager::send(Event * evt)
   {
+    start();
     auto it = wevents.find(evt);
 
     if(it != wevents.end())
@@ -147,7 +147,13 @@ namespace Overkiz
         }
 
         if(!wevents.empty())
+        {
           writeEvent();
+        }
+        else
+        {
+          stop();
+        }
       }
     }
   }
