@@ -145,7 +145,7 @@ namespace Overkiz
       for(int idx = 0; idx < 4; idx++)
       {
         tmp[idx] = decodeTable[uint8_t (*i)];
-        i++;
+        ++i;
 
         if(tmp[idx] >= 65)
         {
@@ -243,7 +243,7 @@ namespace Overkiz
       for(int idx = 0; idx < 4; idx++)
       {
         tmp[idx] = decodeTable[uint8_t (*i)];
-        i++;
+        ++i;
 
         if(tmp[idx] >= 65)
         {

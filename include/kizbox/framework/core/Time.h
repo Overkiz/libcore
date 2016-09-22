@@ -26,6 +26,11 @@ namespace Overkiz
   namespace Time
   {
 
+
+#define NANO_TO_MILLI_SECOND 1000000
+#define NANO_TO_SECOND       1000000000
+
+
     class NotReliable: public Overkiz::Exception
     {
     public:

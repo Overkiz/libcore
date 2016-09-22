@@ -15,7 +15,7 @@
 
 namespace Overkiz
 {
-
+  class Poller;
   class Signal
   {
   public:
@@ -63,12 +63,20 @@ namespace Overkiz
 
       void process(uint32_t events);
 
+      static void reload();
+
+      static void clean();
+
+      static Manager & get();
+
       sigset_t mask;
       std::set<Handler *> handlers[_NSIG - 1];
 
       static Thread::Key<Manager> key;
 
       template<typename T> friend class Shared::Pointer;
+
+      friend class Daemon;
     };
 
   private:

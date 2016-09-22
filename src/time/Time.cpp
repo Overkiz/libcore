@@ -11,14 +11,18 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <linux/rtc.h>
+#include <errno.h>
 
 #include "Time.h"
+
+#ifndef RTC_SANITY_CHECK_YEAR
+  #define RTC_SANITY_CHECK_YEAR 2016
+#endif
 
 namespace Overkiz
 {
   namespace Time
   {
-
     const Elapsed Elapsed::MAX(LONG_MAX, 999999999);
 
     Real::Real()
@@ -73,12 +77,12 @@ namespace Overkiz
 
       if(newTime.ts.tv_nsec < 0)
       {
-        newTime.ts.tv_nsec += 1000000000;
+        newTime.ts.tv_nsec += NANO_TO_SECOND;
         newTime.ts.tv_sec--;
       }
-      else if(newTime.ts.tv_nsec >= 1000000000)
+      else if(newTime.ts.tv_nsec >= NANO_TO_SECOND)
       {
-        newTime.ts.tv_nsec -= 1000000000;
+        newTime.ts.tv_nsec -= NANO_TO_SECOND;
         newTime.ts.tv_sec++;
       }
 
@@ -99,12 +103,12 @@ namespace Overkiz
 
       if(newTime.ts.tv_nsec < 0)
       {
-        newTime.ts.tv_nsec += 1000000000;
+        newTime.ts.tv_nsec += NANO_TO_SECOND;
         newTime.ts.tv_sec--;
       }
-      else if(newTime.ts.tv_nsec >= 1000000000)
+      else if(newTime.ts.tv_nsec >= NANO_TO_SECOND)
       {
-        newTime.ts.tv_nsec -= 1000000000;
+        newTime.ts.tv_nsec -= NANO_TO_SECOND;
         newTime.ts.tv_sec++;
       }
 
@@ -124,12 +128,12 @@ namespace Overkiz
 
       if(ts.tv_nsec < 0)
       {
-        ts.tv_nsec += 1000000000;
+        ts.tv_nsec += NANO_TO_SECOND;
         ts.tv_sec--;
       }
-      else if(ts.tv_nsec >= 1000000000)
+      else if(ts.tv_nsec >= NANO_TO_SECOND)
       {
-        ts.tv_nsec -= 1000000000;
+        ts.tv_nsec -= NANO_TO_SECOND;
         ts.tv_sec++;
       }
 
@@ -149,12 +153,12 @@ namespace Overkiz
 
       if(ts.tv_nsec < 0)
       {
-        ts.tv_nsec += 1000000000;
+        ts.tv_nsec += NANO_TO_SECOND;
         ts.tv_sec--;
       }
-      else if(ts.tv_nsec >= 1000000000)
+      else if(ts.tv_nsec >= NANO_TO_SECOND)
       {
-        ts.tv_nsec -= 1000000000;
+        ts.tv_nsec -= NANO_TO_SECOND;
         ts.tv_sec++;
       }
 
@@ -175,12 +179,12 @@ namespace Overkiz
 
       if(newTime.ts.tv_nsec < 0)
       {
-        newTime.ts.tv_nsec += 1000000000;
+        newTime.ts.tv_nsec += NANO_TO_SECOND;
         newTime.ts.tv_sec--;
       }
-      else if(newTime.ts.tv_nsec >= 1000000000)
+      else if(newTime.ts.tv_nsec >= NANO_TO_SECOND)
       {
-        newTime.ts.tv_nsec -= 1000000000;
+        newTime.ts.tv_nsec -= NANO_TO_SECOND;
         newTime.ts.tv_sec++;
       }
 
@@ -195,12 +199,12 @@ namespace Overkiz
 
       if(newTime.ts.tv_nsec < 0)
       {
-        newTime.ts.tv_nsec += 1000000000;
+        newTime.ts.tv_nsec += NANO_TO_SECOND;
         newTime.ts.tv_sec--;
       }
-      else if(newTime.ts.tv_nsec >= 1000000000)
+      else if(newTime.ts.tv_nsec >= NANO_TO_SECOND)
       {
-        newTime.ts.tv_nsec -= 1000000000;
+        newTime.ts.tv_nsec -= NANO_TO_SECOND;
         newTime.ts.tv_sec++;
       }
 
@@ -214,12 +218,12 @@ namespace Overkiz
 
       if(ts.tv_nsec < 0)
       {
-        ts.tv_nsec += 1000000000;
+        ts.tv_nsec += NANO_TO_SECOND;
         ts.tv_sec--;
       }
-      else if(ts.tv_nsec >= 1000000000)
+      else if(ts.tv_nsec >= NANO_TO_SECOND)
       {
-        ts.tv_nsec -= 1000000000;
+        ts.tv_nsec -= NANO_TO_SECOND;
         ts.tv_sec++;
       }
 
@@ -233,12 +237,12 @@ namespace Overkiz
 
       if(ts.tv_nsec < 0)
       {
-        ts.tv_nsec += 1000000000;
+        ts.tv_nsec += NANO_TO_SECOND;
         ts.tv_sec--;
       }
-      else if(ts.tv_nsec >= 1000000000)
+      else if(ts.tv_nsec >= NANO_TO_SECOND)
       {
-        ts.tv_nsec -= 1000000000;
+        ts.tv_nsec -= NANO_TO_SECOND;
         ts.tv_sec++;
       }
 
@@ -338,25 +342,45 @@ namespace Overkiz
 
     bool Real::reliable()
     {
-      int tmp = 0;
-      bool ret;
-      #ifdef RTC_VL_READ
+      bool ret = false;
       int rtc = open("/dev/rtc", O_RDONLY);
-      int res = ioctl(rtc, RTC_VL_READ, &tmp);
 
-      if(tmp || res < 0)
+      if(rtc > 0)
       {
-        ret = false;
-      }
-      else
-      {
-        ret = true;
+        #ifdef RTC_VL_READ
+        // First check VL flag
+        int tmp;
+
+        if(ioctl(rtc, RTC_VL_READ, &tmp) < 0)
+        {
+          // VL may be not implemented
+          if(errno != ENOTTY)
+          {
+            close(rtc);
+            return false;
+          }
+        }
+        else if(tmp)
+        {
+          // Check VL flag
+          close(rtc);
+          return false;
+        }
+
+        #endif
+        struct rtc_time rtc_tm;
+
+        // Then check if time is valid
+        if(ioctl(rtc, RTC_RD_TIME, &rtc_tm) >= 0)
+        {
+          //tm_year = years since 1900 see linux/time.h
+          if(rtc_tm.tm_year >= (int)(RTC_SANITY_CHECK_YEAR - 1900))
+            ret = true;
+        }
+
+        close(rtc);
       }
 
-      close(rtc);
-      #else
-      ret = true;
-      #endif
       return ret;
     }
 
@@ -416,12 +440,12 @@ namespace Overkiz
       if(newTime.ts.tv_nsec < 0)
       {
         newTime.ts.tv_sec--;
-        newTime.ts.tv_nsec += 1000000000;
+        newTime.ts.tv_nsec += NANO_TO_SECOND;
       }
-      else if(newTime.ts.tv_nsec > 1000000000)
+      else if(newTime.ts.tv_nsec > NANO_TO_SECOND)
       {
         newTime.ts.tv_sec++;
-        newTime.ts.tv_nsec -= 1000000000;
+        newTime.ts.tv_nsec -= NANO_TO_SECOND;
       }
 
       newTime.ts.tv_sec -= time.ts.tv_sec;
@@ -436,12 +460,12 @@ namespace Overkiz
       if(newTime.ts.tv_nsec < 0)
       {
         newTime.ts.tv_sec--;
-        newTime.ts.tv_nsec += 1000000000;
+        newTime.ts.tv_nsec += NANO_TO_SECOND;
       }
-      else if(newTime.ts.tv_nsec > 1000000000)
+      else if(newTime.ts.tv_nsec > NANO_TO_SECOND)
       {
         newTime.ts.tv_sec++;
-        newTime.ts.tv_nsec -= 1000000000;
+        newTime.ts.tv_nsec -= NANO_TO_SECOND;
       }
 
       newTime.ts.tv_sec -= time.seconds;
@@ -455,12 +479,12 @@ namespace Overkiz
       if(ts.tv_nsec < 0)
       {
         ts.tv_sec--;
-        ts.tv_nsec += 1000000000;
+        ts.tv_nsec += NANO_TO_SECOND;
       }
-      else if(ts.tv_nsec > 1000000000)
+      else if(ts.tv_nsec > NANO_TO_SECOND)
       {
         ts.tv_sec++;
-        ts.tv_nsec -= 1000000000;
+        ts.tv_nsec -= NANO_TO_SECOND;
       }
 
       ts.tv_sec -= time.ts.tv_sec;
@@ -474,12 +498,12 @@ namespace Overkiz
       if(ts.tv_nsec < 0)
       {
         ts.tv_sec--;
-        ts.tv_nsec += 1000000000;
+        ts.tv_nsec += NANO_TO_SECOND;
       }
-      else if(ts.tv_nsec > 1000000000)
+      else if(ts.tv_nsec > NANO_TO_SECOND)
       {
         ts.tv_sec++;
-        ts.tv_nsec -= 1000000000;
+        ts.tv_nsec -= NANO_TO_SECOND;
       }
 
       ts.tv_sec -= time.seconds;
@@ -494,12 +518,12 @@ namespace Overkiz
       if(newTime.ts.tv_nsec < 0)
       {
         newTime.ts.tv_sec--;
-        newTime.ts.tv_nsec += 1000000000;
+        newTime.ts.tv_nsec += NANO_TO_SECOND;
       }
-      else if(newTime.ts.tv_nsec > 1000000000)
+      else if(newTime.ts.tv_nsec > NANO_TO_SECOND)
       {
         newTime.ts.tv_sec++;
-        newTime.ts.tv_nsec -= 1000000000;
+        newTime.ts.tv_nsec -= NANO_TO_SECOND;
       }
 
       newTime.ts.tv_sec += time.ts.tv_sec;
@@ -514,12 +538,12 @@ namespace Overkiz
       if(newTime.ts.tv_nsec < 0)
       {
         newTime.ts.tv_sec--;
-        newTime.ts.tv_nsec += 1000000000;
+        newTime.ts.tv_nsec += NANO_TO_SECOND;
       }
-      else if(newTime.ts.tv_nsec > 1000000000)
+      else if(newTime.ts.tv_nsec > NANO_TO_SECOND)
       {
         newTime.ts.tv_sec++;
-        newTime.ts.tv_nsec -= 1000000000;
+        newTime.ts.tv_nsec -= NANO_TO_SECOND;
       }
 
       newTime.ts.tv_sec += time.seconds;
@@ -533,12 +557,12 @@ namespace Overkiz
       if(ts.tv_nsec < 0)
       {
         ts.tv_sec--;
-        ts.tv_nsec += 1000000000;
+        ts.tv_nsec += NANO_TO_SECOND;
       }
-      else if(ts.tv_nsec > 1000000000)
+      else if(ts.tv_nsec > NANO_TO_SECOND)
       {
         ts.tv_sec++;
-        ts.tv_nsec -= 1000000000;
+        ts.tv_nsec -= NANO_TO_SECOND;
       }
 
       ts.tv_sec += time.ts.tv_sec;
@@ -552,12 +576,12 @@ namespace Overkiz
       if(ts.tv_nsec < 0)
       {
         ts.tv_sec--;
-        ts.tv_nsec += 1000000000;
+        ts.tv_nsec += NANO_TO_SECOND;
       }
-      else if(ts.tv_nsec > 1000000000)
+      else if(ts.tv_nsec > NANO_TO_SECOND)
       {
         ts.tv_sec++;
-        ts.tv_nsec -= 1000000000;
+        ts.tv_nsec -= NANO_TO_SECOND;
       }
 
       ts.tv_sec += time.seconds;
@@ -598,7 +622,7 @@ namespace Overkiz
 
     bool Monotonic::operator <= (const Monotonic& time) const
     {
-      if(ts.tv_sec <= time.ts.tv_sec)
+      if(ts.tv_sec != time.ts.tv_sec)
         return ts.tv_sec <= time.ts.tv_sec;
 
       return ts.tv_nsec <= time.ts.tv_nsec;
@@ -614,7 +638,7 @@ namespace Overkiz
 
     bool Monotonic::operator >= (const Monotonic& time) const
     {
-      if(ts.tv_sec >= time.ts.tv_sec)
+      if(ts.tv_sec != time.ts.tv_sec)
         return ts.tv_sec >= time.ts.tv_sec;
 
       return ts.tv_nsec >= time.ts.tv_nsec;

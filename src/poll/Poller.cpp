@@ -4,28 +4,32 @@
  *      Copyright (C) 2015 Overkiz SA.
  */
 
-#include <unistd.h>
-#include <stdio.h>
 #include <errno.h>
-#include <string.h>
 
 #include <config.h>
 #include <kizbox/framework/core/Watcher.h>
 #include <kizbox/framework/core/Log.h>
+#include <kizbox/framework/core/Time.h>
 #include <kizbox/framework/core/Errno.h>
 #include "Poller.h"
 
 #define MAX_EVENTS 10
 
+#define PIDDIR "PIDDIR"
+#define BUFFERSIZE 255
+
 namespace Overkiz
 {
 
-  Poller::Poller(bool interruptibleTasks) :
+  Poller::Poller(bool interruptibleTasks, bool usePidFile) :
     taskManager(nullptr), inter(interruptibleTasks)
   {
     count = 0;
     state = STOPPED;
-    fd = epoll_create(1);
+    fd = epoll_create1(EPOLL_CLOEXEC);
+
+    if(usePidFile)
+      checkPidFile();
 
     if(fd == -1)
     {
@@ -132,12 +136,18 @@ namespace Overkiz
       taskManager->resume(task);
   }
 
+  void Poller::reset(Task *task)
+  {
+    if(taskManager)
+      taskManager->reset(task);
+  }
+
   Poller::Status Poller::status()
   {
     return state;
   }
 
-  void Poller::loop()
+  void Poller::loop(bool daemonize)
   {
     if(state != STOPPED)
     {
@@ -147,12 +157,13 @@ namespace Overkiz
 
     struct epoll_event events[MAX_EVENTS];
 
-    int ret;
-
     state = WAITING;
+
+    run(daemonize);
 
     while(count)
     {
+      int ret = 0;
       ret = epoll_wait(fd, events, MAX_EVENTS, -1);
 
       if(ret == 0)  //Epoll timeout
@@ -162,8 +173,15 @@ namespace Overkiz
       }
       else if(ret < 0)    //Error occurs
       {
-        OVK_ERROR("Poller exiting");
-        throw Overkiz::Errno::Exception();
+        if(errno==EINTR)
+        {
+          OVK_ERROR("Poller interrupted (errno=%d)",errno);
+        }
+        else
+        {
+          OVK_ERROR("Poller exiting (errno=%d)",errno);
+          throw Overkiz::Errno::Exception();
+        }
       }
 
       for(int i = 0; i < ret; i++)
@@ -174,19 +192,41 @@ namespace Overkiz
 
         try
         {
+          #ifndef HAVE_RELEASE
+          Time::Monotonic t1 = Time::Monotonic::now();
+          #endif
           resume(watcher);
+          #ifndef HAVE_RELEASE
+          Time::Elapsed delta = (Time::Elapsed)(Time::Monotonic::now() - t1);
+
+          if(delta.seconds > 2)
+          {
+            OVK_WARNING("--------task <%p> has spent %li seconds and %li nanoseconds !!",watcher, delta.seconds, delta.nanoseconds);
+          }
+
+          #endif
         }
         catch(const Overkiz::Exception & e)
         {
           OVK_ERROR("Task throw Overkiz exception: %s", e.getId());
+          reset(watcher);
+
+          //Check for Unrecoverable exceptions
+          if(std::string(Coroutine::Exception().getId()).compare(e.getId()) == 0)
+          {
+            OVK_CRITICAL("Unrecoverable exception.");
+            throw;
+          }
         }
         catch(const std::exception & e)
         {
           OVK_ERROR("Task throw Generic exception: %s", e.what());
+          reset(watcher);
         }
         catch(...)
         {
           OVK_ERROR("Task throw unknown exception");
+          reset(watcher);
           #ifndef HAVE_RELEASE
           throw;
           #endif
@@ -202,12 +242,12 @@ namespace Overkiz
     state = STOPPED;
   }
 
-  Shared::Pointer<Poller>& Poller::get(bool interruptibleTasks)
+  Shared::Pointer<Poller>& Poller::get(bool interruptibleTasks, bool usePidFile)
   {
     if(poller->empty())
     {
       OVK_DEBUG("Create new poller with %s tasks%s.", interruptibleTasks ? "interruptible" : "simple", interruptibleTasks ? " !! Check your stackSize !!" : "");
-      poller = Shared::Pointer<Poller>::create(interruptibleTasks);
+      poller = Shared::Pointer<Poller>::create(interruptibleTasks, usePidFile);
     }
 
     return *poller;

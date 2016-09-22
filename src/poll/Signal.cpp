@@ -37,6 +37,42 @@ namespace Overkiz
   {
   }
 
+  Signal::Manager & Signal::Manager::get()
+  {
+    Shared::Pointer<Manager> manager = *key;
+
+    if(manager.empty())
+    {
+      manager = Shared::Pointer<Manager>::create();
+      key = manager;
+    }
+
+    return *manager;
+  }
+
+  void Signal::Manager::clean()
+  {
+    Manager & manager = get();
+    manager.stop();
+    close(manager.fd);
+    manager.fd = -1;
+  }
+
+  void Signal::Manager::reload()
+  {
+    Manager & manager = get();
+
+    if(sigprocmask(SIG_BLOCK, &manager.mask, NULL) < 0)
+    {
+      throw;
+    }
+
+    manager.fd = signalfd(manager.fd, &manager.mask,
+                          SFD_NONBLOCK | SFD_CLOEXEC);
+    manager.modify(EPOLLIN);
+    manager.start();
+  }
+
   void Signal::Manager::process(uint32_t evts)
   {
     Signal signal;
@@ -69,62 +105,50 @@ namespace Overkiz
 
   void Signal::Manager::add(uint32_t signal, Handler *handler)
   {
-    Shared::Pointer<Manager> manager = *key;
+    Manager & manager = get();
 
-    if(manager.empty())
+    if(sigisemptyset(&manager.mask) != 0)
     {
-      manager = Shared::Pointer<Manager>::create();
-      key = manager;
+      manager.modify(EPOLLIN);
+      manager.start();
     }
 
-    if(sigisemptyset(&manager->mask) != 0)
-    {
-      manager->modify(EPOLLIN);
-      manager->start();
-    }
-
-    std::set<Handler *>& handlers = manager->handlers[signal];
+    std::set<Handler *>& handlers = manager.handlers[signal];
     handlers.insert(handler);
-    ::sigaddset(&manager->mask, signal);
+    ::sigaddset(&manager.mask, signal);
 
-    if(sigprocmask(SIG_BLOCK, &manager->mask, NULL) < 0)
+    if(sigprocmask(SIG_BLOCK, &manager.mask, NULL) < 0)
     {
       throw;
     }
 
-    manager->fd = signalfd(manager->fd, &manager->mask,
-                           SFD_NONBLOCK | SFD_CLOEXEC);
+    manager.fd = signalfd(manager.fd, &manager.mask,
+                          SFD_NONBLOCK | SFD_CLOEXEC);
   }
 
   void Signal::Manager::remove(uint32_t signal, Handler *handler)
   {
-    Shared::Pointer<Manager> manager = *key;
-
-    if(manager.empty())
-    {
-      return;
-    }
-
-    std::set<Handler *>& handlers = manager->handlers[signal];
+    Manager & manager = get();
+    std::set<Handler *>& handlers = manager.handlers[signal];
     handlers.erase(handler);
-    ::sigdelset(&manager->mask, signal);
+    ::sigdelset(&manager.mask, signal);
 
-    if(sigprocmask(SIG_SETMASK, &manager->mask, NULL) < 0)
+    if(sigprocmask(SIG_SETMASK, &manager.mask, NULL) < 0)
     {
       throw;
     }
 
-    manager->fd = signalfd(manager->fd, &manager->mask,
-                           SFD_NONBLOCK | SFD_CLOEXEC);
+    manager.fd = signalfd(manager.fd, &manager.mask,
+                          SFD_NONBLOCK | SFD_CLOEXEC);
 
-    if(manager->handlers->size() == 0)
+    if(manager.handlers->size() == 0)
     {
       key = Shared::Pointer<Manager>();
     }
 
-    if(sigisemptyset(&manager->mask) == 0)
+    if(sigisemptyset(&manager.mask) == 0)
     {
-      manager->stop();
+      manager.stop();
     }
   }
 

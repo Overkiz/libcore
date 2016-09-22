@@ -129,6 +129,9 @@ namespace Overkiz
 
       void defaultIdent();
 
+      #ifdef __GNUC__
+      __attribute__((format(printf, 3, 4)))
+      #endif
       void print(const Overkiz::Log::Priority priority, const char * format, ...);
 
       void setFacility(const Overkiz::Log::Priority facility);
@@ -137,6 +140,9 @@ namespace Overkiz
 
       Overkiz::Log::Priority getPrintLevel() const;
 
+      #ifdef __GNUC__
+      __attribute__((format(printf, 3, 0)))
+      #endif
       void vprint(const Overkiz::Log::Priority priority, const char * format,
                   va_list arguments);
 

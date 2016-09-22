@@ -85,7 +85,6 @@ namespace Overkiz
       if(state != Status::STOPPED)
       {
         OVK_ERROR("Coroutine destroyed while running.");
-        throw Coroutine::Exception();
       }
     }
   }
@@ -100,7 +99,7 @@ namespace Overkiz
 
     if(coro->state != Status::STOPPED && coro->state != Status::PAUSED)
     {
-      OVK_WARNING("Coroutine is already running. Couldn't resume.");
+      OVK_ERROR("Coroutine is already running. Couldn't resume.");
       throw Coroutine::Exception();
     }
 
@@ -144,7 +143,6 @@ namespace Overkiz
     state = Status::RUNNING;
     entry();
     state = Status::STOPPED;
-    int pgsize = getpagesize();
   }
 
   Coroutine::Status Coroutine::status() const

@@ -43,11 +43,10 @@ namespace Overkiz
     Directory::Iterator & Directory::Iterator::operator ++()
     {
       bool test = false;
-      struct dirent * directoryInfo;
 
       if(this->directory)
       {
-        directoryInfo = readdir(this->directory);
+        struct dirent * directoryInfo = readdir(this->directory);
 
         if(directoryInfo)
         {
@@ -68,7 +67,6 @@ namespace Overkiz
     Directory::Iterator & Directory::Iterator::operator --()
     {
       bool test = false;
-      struct dirent * directoryInfo;
 
       if(this->directory)
       {
@@ -77,7 +75,7 @@ namespace Overkiz
         if(pos >= 0)
         {
           seekdir(this->directory, (pos - 1));
-          directoryInfo = readdir(this->directory);
+          struct dirent * directoryInfo = readdir(this->directory);
 
           if(directoryInfo)
           {
@@ -131,8 +129,6 @@ namespace Overkiz
 
       if(this->isExisting())
       {
-        struct dirent * directoryInfo;
-
         if((!this->name.empty()) && (!this->path.empty())
            && S_ISDIR(this->mode))
         {
@@ -140,7 +136,7 @@ namespace Overkiz
 
           if(it.directory)
           {
-            directoryInfo = readdir(it.directory);
+            struct dirent * directoryInfo = readdir(it.directory);
 
             if(directoryInfo)
             {

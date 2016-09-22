@@ -13,6 +13,7 @@
 
 #include <kizbox/framework/core/Task.h>
 #include <kizbox/framework/core/Thread.h>
+#include <kizbox/framework/core/Daemon.h>
 
 namespace Overkiz
 {
@@ -24,7 +25,7 @@ namespace Overkiz
    * on linux epoll system.
    *
    */
-  class Poller
+  class Poller : private Overkiz::Daemon
   {
   public:
 
@@ -204,7 +205,7 @@ namespace Overkiz
      * For each Watcher receiving an event, the schedule function
      * (implemented in Coroutine::Scheduler class) is called.
      */
-    void loop();
+    void loop(bool daemonize = false);
 
     /**
      * The poller handle the task manager, then you can resume a task with this method
@@ -212,11 +213,16 @@ namespace Overkiz
     void resume(Task *task);
 
     /**
+     * The poller handle the task manager, then you can reset a task with this method
+     */
+    void reset(Task *task);
+
+    /**
      *
      *
      * @return
      */
-    static Shared::Pointer<Poller>& get(bool interruptibleTasks = true);
+    static Shared::Pointer<Poller>& get(bool interruptibleTasks = true, bool usePidFile = true);
 
     /**
      * Get interruptible feature from task manager.
@@ -254,7 +260,7 @@ namespace Overkiz
      *
      * @return
      */
-    Poller(bool interruptibleTasks);
+    Poller(bool interruptibleTasks, bool usePidFile);
 
     /**
      * Destructor.

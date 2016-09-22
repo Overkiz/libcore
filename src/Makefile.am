@@ -7,7 +7,11 @@ lib_LTLIBRARIES = libCore.la
 libCore_la_SOURCES =  filesystem/Directory.cpp \
                       filesystem/Node.cpp \
                       filesystem/File.cpp \
+                      filesystem/Inotify.cpp \
+                      filesystem/UpdateFile.cpp \
                       misc/Base64.cpp \
+                      misc/Daemon.cpp \
+                      misc/Md5.cpp \
                       misc/Library.cpp \
                       misc/Pipe.cpp \
                       misc/PluginLoader.cpp \

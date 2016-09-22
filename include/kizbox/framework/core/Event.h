@@ -74,7 +74,7 @@ namespace Overkiz
 
       void send(Event *evt);
 
-      void writeEvent(Event *evt = nullptr);
+      void writeEvent();
 
       void remove(Event *evt);
 
@@ -82,7 +82,7 @@ namespace Overkiz
 
       static Thread::Key<Manager> manager;
 
-      std::map<Event*, uint64_t> wevents;
+      std::vector<Event*> wevents;
 
       friend class Event;
       template<typename T> friend class Shared::Pointer;

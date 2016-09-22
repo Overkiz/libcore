@@ -21,6 +21,13 @@ namespace Overkiz
   namespace Terminal
   {
 
+    typedef enum
+    {
+      FLUSH_IN = TCIFLUSH ,     // received but not read
+      FLUSH_OUT = TCOFLUSH ,    // written but not transmitted
+      FLUSH_IN_OUT = TCIOFLUSH  // both data received but not read, and data written but not transmitted
+    } FlushType;
+
     namespace Exception
     {
 
@@ -148,6 +155,12 @@ namespace Overkiz
       void setNoCTtyFlag();
 
       /**
+       * Method used to reset the O_NOCTTY flags on the Terminal's configuration
+       * Should be used before calling "open" or won't be applied
+       */
+      void resetCTtyFlag();
+
+      /**
        * Method used to set the control mode flags on the Terminal's configuration
        * Should be used after calling "open"
        */
@@ -171,6 +184,12 @@ namespace Overkiz
        */
       void setControlCharacters(int index, char value)
       throw(Exception::Configuration);
+
+      /**
+       * Method used to flush the Terminal
+       * Should be used after calling "open"
+       */
+      void flush(FlushType type = FLUSH_IN_OUT);
 
     protected:
 

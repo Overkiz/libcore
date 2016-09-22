@@ -41,6 +41,8 @@ namespace Overkiz
        */
       virtual void resume(Task *task) = 0;
 
+      virtual void reset(Task *task) = 0;
+
       virtual void remove(Task *task)
       {
       }
@@ -60,6 +62,8 @@ namespace Overkiz
       virtual ~SimpleManager();
 
       void resume(Task *task);
+
+      void reset(Task *task);
 
       void remove(Task *task);
 
@@ -81,6 +85,8 @@ namespace Overkiz
       virtual ~InterruptibleManager();
 
       void resume(Task *task);
+
+      void reset(Task *task);
 
       void remove(Task *task);
 

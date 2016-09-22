@@ -980,7 +980,6 @@ namespace Overkiz
     Absolute::operator Relative::Year::Month() const
     {
       Relative::Year::Month ret;
-      struct tm tm;
       ret.month = month;
       ret.day = day;
       ret.hour = hour;

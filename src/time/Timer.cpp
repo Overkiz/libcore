@@ -33,6 +33,12 @@ namespace Overkiz
     {
       struct itimerspec max = { { LONG_MAX, LONG_MAX }, { 0, 0 } };
       fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
+
+      if(fd < 0)
+      {
+        throw Overkiz::Errno::Exception();
+      }
+
       timerfd_settime(fd, TFD_TIMER_ABSTIME | TFD_TIMER_CANCEL_ON_SET, &max,
                       NULL);
       check();
@@ -45,26 +51,7 @@ namespace Overkiz
 
     void Real::Manager::check()
     {
-      int tmp = 0;
-      bool ret;
-      #ifdef RTC_VL_READ
-      int rtc = open("/dev/rtc", O_RDONLY);
-      int res = ioctl(rtc, RTC_VL_READ, &tmp);
-
-      if(tmp || res < 0)
-      {
-        ret = false;
-      }
-      else
-      {
-        ret = true;
-      }
-
-      close(rtc);
-      #else
-      ret = true;
-      #endif
-      reliable = ret;
+      reliable = Overkiz::Time::Real::reliable();
     }
 
     void Real::Manager::start(Real *timer)
@@ -87,7 +74,7 @@ namespace Overkiz
       }
 
       for(std::list<Real *>::iterator i = timers.begin(); i != timers.end();
-          i++)
+          ++i)
       {
         Real *current = *i;
 
@@ -415,6 +402,12 @@ namespace Overkiz
     Monotonic::Manager::Manager()
     {
       fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
+
+      if(fd < 0)
+      {
+        throw Overkiz::Errno::Exception();
+      }
+
       Watcher::modify(EPOLLIN);
     }
 
@@ -432,7 +425,7 @@ namespace Overkiz
       bool added = false;
 
       for(std::list<Monotonic *>::iterator i = timers.begin(); i != timers.end();
-          i++)
+          ++i)
       {
         Monotonic *current = *i;
 

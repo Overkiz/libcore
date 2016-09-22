@@ -11,6 +11,7 @@
 #include <stdio.h>
 
 #include <kizbox/framework/core/Exception.h>
+#include <kizbox/framework/core/Errno.h>
 #include "Terminal.h"
 
 namespace Overkiz
@@ -206,6 +207,11 @@ namespace Overkiz
       this->flags |= O_NOCTTY;
     }
 
+    void Base::resetCTtyFlag()
+    {
+      this->flags &= ~O_NOCTTY;
+    }
+
     void Base::setControlMode(tcflag_t c_cflag) throw(Exception::Configuration)
     {
       config.c_cflag = c_cflag;
@@ -247,6 +253,14 @@ namespace Overkiz
       }
     }
 
+    void Base::flush(FlushType type)
+    {
+      if(tcflush(fd, type) < 0)
+      {
+        throw Overkiz::Errno::Exception();
+      }
+    }
+
     void Base::applyConfiguration(int when) throw(Exception::Configuration)
     {
       if(tcsetattr(this->fd, when, &this->config) < 0)
@@ -258,7 +272,7 @@ namespace Overkiz
     Input::Input(const std::string & path)
     {
       this->path = path;
-      this->flags = O_RDONLY | O_NONBLOCK;
+      this->flags = O_RDONLY | O_NOCTTY | O_NONBLOCK;
     }
 
     Input::~Input()
@@ -351,7 +365,7 @@ namespace Overkiz
     Output::Output(const std::string & path)
     {
       this->path = path;
-      this->flags = O_WRONLY | O_NONBLOCK;
+      this->flags = O_WRONLY | O_NOCTTY | O_NONBLOCK;
     }
 
     Output::~Output()
@@ -398,7 +412,7 @@ namespace Overkiz
     size_t Output::write(const void *data, size_t size, bool more)
     throw(Exception::Write)
     {
-      size_t dataWritten = 0;
+      ssize_t dataWritten = 0;
 
       if((dataWritten = ::write(this->fd, data, size)) < 0)
       {
@@ -412,7 +426,7 @@ namespace Overkiz
         }
       }
 
-      if(dataWritten < size)
+      if((size_t)dataWritten < size)
       {
         currentStatus &= ~Stream::OUTPUT_READY;
       }
@@ -447,7 +461,7 @@ namespace Overkiz
       Input(path), Output(path)
     {
       this->path = path;
-      this->flags = O_RDWR | O_NONBLOCK;
+      this->flags = O_RDWR | O_NOCTTY | O_NONBLOCK;
     }
 
     InputOutput::~InputOutput()

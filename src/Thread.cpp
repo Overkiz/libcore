@@ -5,8 +5,10 @@
  */
 
 #include <signal.h>
-
+#include <unistd.h>
+#include <limits.h>
 #include "Thread.h"
+#include <kizbox/framework/core/Errno.h>
 
 namespace Overkiz
 {
@@ -115,17 +117,41 @@ namespace Overkiz
   void Thread::Configuration::getSchedulingProperties(Scheduler& sched)
   {
     int inheritsched;
-    pthread_attr_getinheritsched(&attributes, &inheritsched);
+
+    if(pthread_attr_getinheritsched(&attributes, &inheritsched) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
     sched.inheritance = inheritsched;
-    pthread_attr_getschedpolicy(&attributes, (int *)(&sched.policy));
-    pthread_attr_getschedparam(&attributes, &sched.parameters);
+
+    if(pthread_attr_getschedpolicy(&attributes, (int *)(&sched.policy)) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
+    if(pthread_attr_getschedparam(&attributes, &sched.parameters) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   void Thread::Configuration::setSchedulingProperties(Scheduler& sched)
   {
-    pthread_attr_setinheritsched(&attributes, sched.isInheritedFromParent());
-    pthread_attr_setschedpolicy(&attributes, sched.getPolicy());
-    pthread_attr_setschedparam(&attributes, &sched.getParameters());
+    if(pthread_attr_setinheritsched(&attributes, sched.isInheritedFromParent()) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
+    if(pthread_attr_setschedpolicy(&attributes, sched.getPolicy()) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
+    if(pthread_attr_setschedparam(&attributes, &sched.getParameters()) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   Thread::Scope Thread::Configuration::getScopeProperty()
@@ -164,6 +190,46 @@ namespace Overkiz
     int detachstate =
       join == true ? PTHREAD_CREATE_JOINABLE : PTHREAD_CREATE_DETACHED;
     pthread_attr_setdetachstate(&attributes, detachstate);
+  }
+
+
+  size_t Thread::Configuration::getStackSize()
+  {
+    size_t stacksize=0;
+
+    if(pthread_attr_getstacksize(&attributes, &stacksize)!= 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
+    return stacksize;
+  }
+
+
+  size_t Thread::Configuration::setStackSize(size_t stacksize)
+  {
+    #ifndef PTHREAD_STACK_MIN
+#define  PTHREAD_STACK_MIN 16384
+    #endif
+
+    if(stacksize < PTHREAD_STACK_MIN)
+    {
+      stacksize = PTHREAD_STACK_MIN;
+    }
+
+    int pgsize = getpagesize();
+
+    if(stacksize % pgsize)
+    {
+      stacksize = ((stacksize / pgsize) + 1) * pgsize;
+    }
+
+    if(pthread_attr_setstacksize(&attributes, stacksize)!= 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
+    return stacksize;
   }
 
   Thread::Lock::Configuration::Configuration()
@@ -434,45 +500,56 @@ namespace Overkiz
 
   Shared::Pointer<Thread>& Thread::self()
   {
+    if(key->empty())
+    {
+      key = Shared::Pointer<Thread>::create();
+    }
+
     return *key;
   }
 
   void Thread::checkChildren()
   {
-    for(ThreadIterator i = children.begin(); i != children.end(); i++)
-    {
-      (*i)->lock.acquire();
+    auto it = children.begin();
 
-      switch((*i)->status)
+    while(it != children.end())
+    {
+      (*it)->lock.acquire();
+      Shared::Pointer<Thread> & t = (*it);
+      Thread * tr = &(*t);
+
+      switch((*it)->status)
       {
         case STATUS_IDLE:
-          int err;
-          err = pthread_create(& ((*i)->id), &config.attributes, startCallback,
-                               & (*i));
-          (*i)->status = STATUS_STARTING;
+          pthread_create(& tr->id, &config.attributes, startCallback,
+                         tr);
+          (*it)->status = STATUS_STARTING;
+          (*it)->lock.release();
+          it++;
           break;
 
         case STATUS_STOPPED:
           void *ret;
-          pthread_join((*i)->id, &ret);
-          (*i)->status = STATUS_IDLE;
+          pthread_join(tr->id, &ret);
+          tr->status = STATUS_IDLE;
 
-          if((*i)->delegate)
+          if(tr->delegate)
           {
-            (*i)->delegate->release(& (**i));
+            tr->delegate->release(tr);
           }
 
-          children.erase(i);
+          (*it)->lock.release();
+          it = children.erase(it);
           break;
 
         case STATUS_RUNNING:
         case STATUS_STARTING:
         case STATUS_STOPPING:
         default:
+          (*it)->lock.release();
+          it++;
           break;
       }
-
-      (*i)->lock.release();
     }
   }
 
@@ -580,12 +657,17 @@ namespace Overkiz
       throw;
     }
 
-    for(ThreadIterator i = current->children.begin();
-        i != current->children.end(); i++)
+    auto it = current->children.begin();
+
+    while(it != current->children.end())
     {
-      if(*i == child)
+      if(*it == child)
       {
-        current->children.erase(i);
+        it = current->children.erase(it);
+      }
+      else
+      {
+        it++;
       }
     }
 
@@ -601,13 +683,35 @@ namespace Overkiz
 
   long Thread::join(Shared::Pointer<Thread>& child)
   {
-    if(self() != child->parent)
+    Shared::Pointer<Thread> current = self();
+    child->lock.acquire();
+
+    if(current != child->parent)
     {
+      child->lock.release();
       throw;
     }
 
     void *ret;
+    child->lock.release();
     pthread_join(child->id, &ret);
+    child->lock.acquire();
+    auto it = current->children.begin();
+
+    while(it != current->children.end())
+    {
+      if(*it == child)
+      {
+        it = current->children.erase(it);
+      }
+      else
+      {
+        it++;
+      }
+    }
+
+    child->parent = Shared::Pointer<Thread>();
+    child->lock.release();
     return (long) ret;
   }
 
@@ -692,33 +796,33 @@ namespace Overkiz
   void Thread::cleanupCallback(void *arg)
   {
     Thread *thread = static_cast<Thread *>(arg);
+    auto it = thread->children.begin();
 
-    for(ThreadIterator i = thread->children.begin();
-        i != thread->children.end(); i++)
+    while(it != thread->children.end())
     {
-      (*i)->lock.acquire();
+      (*it)->lock.acquire();
 
-      switch((*i)->status)
+      switch((*it)->status)
       {
         case STATUS_IDLE:
-          (*i)->status = STATUS_STOPPED;
+          (*it)->status = STATUS_STOPPED;
           break;
 
         case STATUS_RUNNING:
         case STATUS_STARTING:
-          (*i)->cancel();
+          (*it)->cancel();
 
         case STATUS_STOPPING:
         case STATUS_STOPPED:
-          join((*i));
+          join((*it));
           break;
 
         default:
           break;
       }
 
-      (*i)->lock.release();
-      thread->children.erase(i);
+      (*it)->lock.release();
+      it = thread->children.erase(it);
     }
 
     thread->cleanup();
@@ -754,6 +858,48 @@ namespace Overkiz
     pthread_cleanup_pop(1);
     thread->lock.release();
     return (void *) ret;
+  }
+
+  int Thread::getSchedulingMaxPriority(Scheduler::Policy policy)
+  {
+    return sched_get_priority_max((int)policy);
+  }
+
+  int Thread::getSchedulingMinPriority(Scheduler::Policy policy)
+  {
+    return sched_get_priority_min((int)policy);
+  }
+
+  void Thread::getSchedulingProperties(Scheduler& sched)
+  {
+    Scheduler::Parameters param;
+    Scheduler::Policy policy;
+
+    if(pthread_getschedparam(id, (int*)&policy,&param) !=0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
+    sched.setPolicy(policy);
+    sched.setParameters(param);
+  }
+
+  void Thread::setSchedulingProperties(Scheduler& sched)
+  {
+    if(pthread_setschedparam(id, (int)(sched.getPolicy()),&sched.getParameters()) !=0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+  }
+
+  Thread::Configuration Thread::getConfiguration()
+  {
+    return config;
+  }
+
+  void Thread::setConfiguration(Configuration& newConfig)
+  {
+    config = newConfig;
   }
 
   Thread::Key<Thread> Thread::key;

@@ -93,6 +93,7 @@ AC_DEFINE_UNQUOTED([OVERKIZ_APPLICATION_PATH_PREFIX], ["${OVERKIZ_APPLICATION_PA
 AC_DEFINE_UNQUOTED([APPLICATION_HOST],                ["${APPLICATION_HOST}"],                [Defines the host application])
 AC_DEFINE_UNQUOTED([APPLICATION_PATH],                ["${APPLICATION_PATH}"],                [Defines the path application])
 
+AC_DEFINE_UNQUOTED([RTC_SANITY_CHECK_YEAR], [$(date "+%Y")], [Define the year used in rtc sanity checks])
 # Here you may add some application constants
 # ...
 

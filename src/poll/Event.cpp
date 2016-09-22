@@ -7,9 +7,11 @@
 #include <unistd.h>
 #include <sys/eventfd.h>
 #include <stdio.h>
+#include <algorithm>
 
 #include "Poller.h"
 #include "Event.h"
+#include "Errno.h"
 
 namespace Overkiz
 {
@@ -23,27 +25,32 @@ namespace Overkiz
   Event::~Event()
   {
     Manager::get()->remove(this);
+    disable();
   }
 
   void Event::send()
   {
+    count++;
     Manager::get()->send(this);
   }
 
   void Event::entry()
   {
-    receive(count);
+    uint64_t last = count;
+    count = 0;
+    receive(last);
   }
 
   void Event::save()
   {
-    disable();
+    if(count)
+      Manager::get()->remove(this);
   }
 
   void Event::restore()
   {
-    enable();
-    Manager::get()->writeEvent(this);
+    if(count)
+      Manager::get()->send(this);
   }
 
   Shared::Pointer<Event::Manager>& Event::Manager::get()
@@ -70,34 +77,21 @@ namespace Overkiz
   void Event::Manager::send(Event * evt)
   {
     start();
-    auto it = wevents.find(evt);
+    auto it = std::find(wevents.begin(), wevents.end(), evt);
 
-    if(it != wevents.end())
+    if(it == wevents.end())
     {
-      wevents[evt]++;
-    }
-    else
-    {
-      wevents[evt] = 1;
+      wevents.push_back(evt);
     }
 
-    if(evt->isEnabled() && wevents.size())
+    if(wevents.size())
     {
       writeEvent();
     }
   }
 
-  void Event::Manager::writeEvent(Event *evt)
+  void Event::Manager::writeEvent()
   {
-    if(evt)
-    {
-      auto it = wevents.find(evt);
-      bool result = (it == wevents.end());
-
-      if(result)
-        return;
-    }
-
     if(!(events & EPOLLOUT))
     {
       uint32_t evts = events | EPOLLOUT;
@@ -107,16 +101,21 @@ namespace Overkiz
 
   void Event::Manager::remove(Event *evt)
   {
-    wevents.erase(evt);
+    auto it = std::find(wevents.begin(), wevents.end(), evt);
+
+    if(it != wevents.end())
+      wevents.erase(it);
   }
 
   void Event::Manager::process(uint32_t evts)
   {
     if(evts & EPOLLOUT)
     {
-      ssize_t ret;
       uint64_t events = 1;
-      ret = write(fd, &events, sizeof(events));
+
+      if(write(fd, &events, sizeof(events)) < 0)
+        throw Overkiz::Errno::Exception();
+
       uint32_t newEvents = events & ~EPOLLOUT;
       modify(newEvents);
     }
@@ -124,25 +123,32 @@ namespace Overkiz
     if(evts & EPOLLIN)
     {
       uint64_t received = 0;
-      ssize_t ret;
-      ret = read(fd, &received, sizeof(received));
+
+      if(read(fd, &received, sizeof(received)) < 0)
+        throw Overkiz::Errno::Exception();
 
       if(received != 0)
       {
-        std::map<Event*, uint64_t> tmpEvent = wevents;
+        std::vector<Event*> tmpEvent = wevents;
         wevents.clear();
 
         for(auto it = tmpEvent.begin(); it != tmpEvent.end(); it++)
         {
-          if(it->first->isEnabled() && it->first->status() != RUNNING)
+          Event* e = *it;
+
+          //Resume only IDLE tasks
+          if(e->status() != RUNNING && e->status() != PAUSED)
           {
-            it->first->count = it->second;
-            Event * evt = it->first;
-            Poller::get()->resume(evt);
+            Poller::get()->resume(e);
           }
           else
           {
-            wevents.insert(*it);
+            auto it2 = std::find(wevents.begin(), wevents.end(), e);
+
+            if(it2 == wevents.end())
+            {
+              wevents.push_back(e);
+            }
           }
         }
 

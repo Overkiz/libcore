@@ -47,7 +47,6 @@ namespace Overkiz
     }
     else
     {
-      int status;
       proc->id = pid;
       lock.acquire();
       current->children[pid] = proc;

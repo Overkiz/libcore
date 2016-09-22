@@ -309,6 +309,11 @@ namespace Overkiz
        */
       void joinToParent(bool join);
 
+
+      size_t getStackSize();
+
+      size_t setStackSize(const size_t stacksize);
+
     private:
       pthread_attr_t attributes;
 
@@ -891,6 +896,11 @@ namespace Overkiz
      */
     long start();
 
+
+    Configuration getConfiguration();
+
+    void setConfiguration(Configuration& newConfig);
+
   protected:
     /**
      * Run function called by startCallback.
@@ -946,8 +956,6 @@ namespace Overkiz
      */
     void checkChildren();
 
-  private:
-
     /**
      * Constructor with default configuration.
      *
@@ -984,6 +992,16 @@ namespace Overkiz
      * @return
      */
     virtual ~Thread();
+
+    void getSchedulingProperties(Scheduler& sched);
+
+    void setSchedulingProperties(Scheduler& sched);
+
+    int getSchedulingMaxPriority(Scheduler::Policy policy);
+
+    int getSchedulingMinPriority(Scheduler::Policy policy);
+
+  private:
 
     /**
      * Define the thread status.

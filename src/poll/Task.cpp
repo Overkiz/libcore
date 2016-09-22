@@ -21,7 +21,7 @@ namespace Overkiz
 
   Task::~Task()
   {
-    if(manager)
+    if(manager && state == Task::Status::RUNNING)
       manager->remove(this);
   }
 
@@ -84,6 +84,13 @@ namespace Overkiz
     }
   }
 
+  void Task::SimpleManager::reset(Task *task)
+  {
+    //Task may have throw an exception
+    if(!isRemoved)
+      task->state = Task::Status::IDLE;
+  }
+
   void Task::SimpleManager::remove(Task *task)
   {
     //Check if this task is the current task
@@ -144,6 +151,22 @@ namespace Overkiz
           coroutines.erase(task);
         }
       }
+    }
+  }
+
+  void Task::InterruptibleManager::reset(Task *task)
+  {
+    //Task may have throw an exception
+    if(isRemoved)
+    {
+      coroutines.erase(task);
+      isRemoved = false;
+    }
+    else
+    {
+      // Reset coroutine
+      task->state = Status::IDLE;
+      coroutines[task] = Shared::Pointer<Coroutine>::create(task->stackSize);
     }
   }
 
