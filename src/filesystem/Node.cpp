@@ -23,6 +23,7 @@ namespace Overkiz
     Node::Node(const std::string & path)
     {
       std::string pathTemp = path;
+      this->mode = 0;
 
       if(!pathTemp.empty())
       {
@@ -44,6 +45,7 @@ namespace Overkiz
       struct stat fileInfo;
       this->name = name;
       this->path = path;
+      this->mode = 0;
 
       if((!this->name.empty()) && (!this->path.empty()))
       {

@@ -91,13 +91,16 @@ namespace Overkiz
           break;
         }
 
-        std::set<Handler *>& hdls = handlers[signal.info.ssi_signo];
-
-        for(std::set<Handler *>::iterator i = hdls.begin();
-            i != hdls.end(); ++i)
+        if(signal.info.ssi_signo < _NSIG - 1)
         {
-          Handler *handler = *i;
-          handler->handle(signal);
+          std::set<Handler *>& hdls = handlers[signal.info.ssi_signo];
+
+          for(std::set<Handler *>::iterator i = hdls.begin();
+              i != hdls.end(); ++i)
+          {
+            Handler *handler = *i;
+            handler->handle(signal);
+          }
         }
       }
     }

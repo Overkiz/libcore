@@ -165,7 +165,7 @@ namespace Overkiz
 
     const char * Exception::getId() const
     {
-      if(code <= (int)(sizeof(ERRNO_ID) / sizeof(const char *)))
+      if(code <= (int)(sizeof(ERRNO_ID) / sizeof(const char *)) - 1)
       {
         return ERRNO_ID[code];
       }

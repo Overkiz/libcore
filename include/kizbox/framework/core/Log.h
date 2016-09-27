@@ -11,6 +11,7 @@
 #include <stdarg.h>
 #include <string>
 #include <string.h>
+#include <sys/time.h>
 
 #include <kizbox/framework/core/Shared.h>
 #include <kizbox/framework/core/Thread.h>
@@ -59,8 +60,8 @@
   #define OVK_TRACE(...)               (fprintf(stderr, __VA_ARGS__))
   #define OVK_LTRACE(...)              (fprintf(stderr, "%s:%i: ", __FUNCTION__, __LINE__) + fprintf(stderr, __VA_ARGS__))
 #else
-  #define OVK_TRACE(...)               while(0);
-  #define OVK_LTRACE(...)              while(0);
+  #define OVK_TRACE(...)               while(0)
+  #define OVK_LTRACE(...)              while(0)
 #endif
 
 /* Utilities */
@@ -99,6 +100,15 @@ namespace Overkiz
       OVK_PRIORITY_COUNT, //!<
     };
 
+
+    enum TimedMsg
+    {
+      OVK_TIME_UNKNOWN = 0,
+      OVK_TIME_FROM_START,
+      OVK_TIME_BETWEEN_MESSAGE,
+      OVK_TIME_COUNT,
+    };
+
     static const std::string PRIORITY_STRING_UC[] = { "EMERGENCY", "ALERT",
                                                       "CRITICAL", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUG", "SILENT",
                                                       "UNKNOWN"
@@ -125,6 +135,8 @@ namespace Overkiz
 
       static Overkiz::Log::Priority getPriority(const std::string & priority);
 
+      static Overkiz::Log::TimedMsg getTimed(const std::string & timed);
+
       void updateIdent(const std::string & ident);
 
       void defaultIdent();
@@ -150,10 +162,11 @@ namespace Overkiz
 
       unsigned char _facility;
       Overkiz::Log::Priority _printLevel;
+      Overkiz::Log::TimedMsg timed;
       int _options;
 
       std::string _temporaryIdent;
-
+      struct timeval tv1;
       static Thread::Key<Logger> logger;
 
     };

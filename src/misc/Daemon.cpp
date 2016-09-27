@@ -200,7 +200,7 @@ namespace Overkiz
     }
 
     flock(lock, LOCK_EX);
-    char buff[BUFFERSIZE];
+    char buff[BUFFERSIZE+1];
     int r = read(lock, buff, BUFFERSIZE);
 
     if(r > 0)
@@ -212,8 +212,8 @@ namespace Overkiz
       // If the pid is already taken by an app
       if(stat(proc.c_str(), &st) == 0)
       {
-        char bf[BUFFERSIZE];
-        char bf2[BUFFERSIZE];
+        char bf[BUFFERSIZE+1];
+        char bf2[BUFFERSIZE+1];
         ssize_t rl = readlink(std::string(proc+"/exe").c_str(), bf, BUFFERSIZE);
 
         if(rl < 0)

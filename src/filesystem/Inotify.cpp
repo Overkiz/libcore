@@ -87,19 +87,23 @@ namespace Overkiz
 
     if(events & EPOLLIN)
     {
+      static const constexpr size_t buf_max_size = (sizeof(struct inotify_event) + NAME_MAX + 1);
+      // To workaround inotify_event's VLA length check issues
+      char tmp_buf[buf_max_size];
+      inotify_event * event = (inotify_event*)tmp_buf;
+
       for(;;)
       {
-        inotify_event event;
-        int ret = read(fd, &event, sizeof(struct inotify_event) + NAME_MAX + 1);
+        int ret = read(fd, event, buf_max_size);
 
         if(ret < 1)
           break;
 
         //Dispatch
-        auto it = instances.find(event.wd);
+        auto it = instances.find(event->wd);
 
         if(it != instances.end())
-          it->second->modified(event.mask);
+          it->second->modified(event->mask);
       }
     }
   }

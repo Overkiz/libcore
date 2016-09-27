@@ -151,7 +151,7 @@ namespace Overkiz
       return currentStatus;
     }
 
-    void Base::open() throw(Exception::Open)
+    void Base::open() throw(Exception::Open, Exception::Configuration)
     {
       if(this->delegate == NULL)
       {

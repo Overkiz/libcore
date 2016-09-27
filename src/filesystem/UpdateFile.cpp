@@ -83,9 +83,11 @@ namespace Overkiz
 
         if(fd1 < 0 || fd2 < 0)
         {
-          if(fd1) ::close(fd1);
+          if(fd1 >=0)
+            ::close(fd1);
 
-          if(fd2) ::close(fd2);
+          if(fd2>=0)
+            ::close(fd2);
 
           OVK_DEBUG("%s > open error : (%s)", __FUNCTION__, strerror(errno));
           return ret;

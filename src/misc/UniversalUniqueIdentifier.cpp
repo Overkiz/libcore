@@ -45,6 +45,10 @@ namespace Overkiz
   void UniversalUniqueIdentifier::generate()
   {
     int fd = open("/dev/urandom", O_RDONLY);
+
+    if(fd < 0)
+      throw Overkiz::Errno::Exception();
+
     ssize_t ret = ::read(fd, identifier, sizeof(identifier));
 
     if(ret != sizeof(identifier))

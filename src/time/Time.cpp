@@ -345,7 +345,7 @@ namespace Overkiz
       bool ret = false;
       int rtc = open("/dev/rtc", O_RDONLY);
 
-      if(rtc > 0)
+      if(rtc >= 0)
       {
         #ifdef RTC_VL_READ
         // First check VL flag

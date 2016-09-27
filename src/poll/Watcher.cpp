@@ -30,6 +30,10 @@ namespace Overkiz
     {
       fd = dup(src.fd);
     }
+    else
+    {
+      fd = -1;
+    }
   }
 
   Watcher::Watcher(int newFd, uint32_t newEvents)

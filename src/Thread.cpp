@@ -585,7 +585,7 @@ namespace Overkiz
       throw;
     }
 
-    bool check;
+    bool check = false;
 
     switch(child->status)
     {
@@ -630,6 +630,7 @@ namespace Overkiz
       {
         case STATUS_IDLE:
           (*i)->status = STATUS_STOPPED;
+          break;
 
         case STATUS_RUNNING:
         case STATUS_STARTING:
@@ -811,6 +812,7 @@ namespace Overkiz
         case STATUS_RUNNING:
         case STATUS_STARTING:
           (*it)->cancel();
+          break;
 
         case STATUS_STOPPING:
         case STATUS_STOPPED:

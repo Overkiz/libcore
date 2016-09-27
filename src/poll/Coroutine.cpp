@@ -65,6 +65,7 @@ namespace Overkiz
   Coroutine::Coroutine()
   {
     stack.base = NULL;
+    stack.top = NULL;
     size = 0;
     state = Status::RUNNING;
     #ifdef VALGRIND

@@ -14,6 +14,13 @@ namespace Overkiz
   namespace Date
   {
 
+    static void initializeTm(tm & tm)
+    {
+      time_t raw;
+      ::time(&raw);
+      tm = *::localtime(&raw);
+    }
+
     bool Relative::Day::operator == (const Day& val) const
     {
       Day tmp1 = val;
@@ -525,6 +532,7 @@ namespace Overkiz
     Absolute Absolute::next(const Relative::Day& value) const
     {
       struct tm tm;
+      initializeTm(tm);
       Absolute ret;
       Relative::Day current = *this;
       Relative::Day tmp = value;
@@ -556,6 +564,7 @@ namespace Overkiz
     Absolute Absolute::previous(const Relative::Day& value) const
     {
       struct tm tm;
+      initializeTm(tm);
       Absolute ret;
       Relative::Day current = *this;
       Relative::Day tmp = value;
@@ -588,6 +597,7 @@ namespace Overkiz
     {
       Relative::Week ret;
       struct tm tm;
+      initializeTm(tm);
       tm.tm_year = year - 1900;
       tm.tm_mon = month;
       tm.tm_mday = day + 1;
@@ -606,6 +616,7 @@ namespace Overkiz
     Absolute Absolute::next(const Relative::Week& value) const
     {
       struct tm tm;
+      initializeTm(tm);
       Absolute ret;
       Relative::Week current = *this;
       Relative::Week tmp = value;
@@ -642,6 +653,7 @@ namespace Overkiz
     Absolute Absolute::previous(const Relative::Week& value) const
     {
       struct tm tm;
+      initializeTm(tm);
       Absolute ret;
       Relative::Week current = *this;
       Relative::Week tmp = value;
@@ -691,6 +703,7 @@ namespace Overkiz
     Absolute Absolute::next(const Relative::Month& value) const
     {
       struct tm tm;
+      initializeTm(tm);
       Absolute ret;
       Relative::Month current = *this;
       Relative::Month tmp = value;
@@ -759,6 +772,7 @@ namespace Overkiz
     Absolute Absolute::previous(const Relative::Month& value) const
     {
       struct tm tm;
+      initializeTm(tm);
       Absolute ret;
       Relative::Month current = *this;
       Relative::Month tmp = value;
@@ -828,6 +842,7 @@ namespace Overkiz
     {
       Relative::Year::Day ret;
       struct tm tm;
+      initializeTm(tm);
       tm.tm_year = year - 1900;
       tm.tm_mon = month;
       tm.tm_mday = day + 1;
@@ -846,6 +861,7 @@ namespace Overkiz
     Absolute Absolute::next(const Relative::Year::Day& value) const
     {
       struct tm tm;
+      initializeTm(tm);
       Absolute ret;
       Relative::Year::Day current = *this;
       Relative::Year::Day tmp = value;
@@ -913,6 +929,7 @@ namespace Overkiz
     Absolute Absolute::previous(const Relative::Year::Day& value) const
     {
       struct tm tm;
+      initializeTm(tm);
       Absolute ret;
       Relative::Year::Day current = *this;
       Relative::Year::Day tmp = value;
@@ -992,6 +1009,7 @@ namespace Overkiz
     Absolute Absolute::next(const Relative::Year::Month& value) const
     {
       struct tm tm;
+      initializeTm(tm);
       Absolute ret;
       Relative::Year::Month current = *this;
       Relative::Year::Month tmp = value;
@@ -1031,6 +1049,7 @@ namespace Overkiz
     Absolute Absolute::previous(const Relative::Year::Month& value) const
     {
       struct tm tm;
+      initializeTm(tm);
       Absolute ret;
       Relative::Year::Month current = *this;
       Relative::Year::Month tmp = value;
@@ -1132,6 +1151,7 @@ namespace Overkiz
     Base::Base()
     {
       nanosecond = 0;
+      initializeTm(tm);
     }
 
     Base::~Base()

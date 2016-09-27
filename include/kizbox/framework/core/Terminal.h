@@ -122,7 +122,7 @@ namespace Overkiz
       /**
        * Method used to open the Terminal
        */
-      void open() throw(Exception::Open);
+      void open() throw(Exception::Open, Exception::Configuration);
 
       /**
        * Method used to close the Terminal
