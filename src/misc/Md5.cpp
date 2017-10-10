@@ -26,7 +26,7 @@
  *  http://www.ietf.org/rfc/rfc1321.txt
  */
 
-#include <string.h>
+#include <cstring>
 #include <kizbox/framework/core/Md5.h>
 
 
@@ -109,7 +109,7 @@ namespace Overkiz
 
   void mbedtls_md5_free(mbedtls_md5_context *ctx)
   {
-    if(ctx == NULL)
+    if(ctx == nullptr)
       return;
 
     mbedtls_zeroize(ctx, sizeof(mbedtls_md5_context));

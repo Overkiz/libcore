@@ -22,19 +22,40 @@ namespace Overkiz
 
   Signal::Manager::Manager()
   {
-    setStackSize(4 * getpagesize());
+    setStackSize((size_t)(4 * getpagesize()));
     ::sigemptyset(&mask);
 
-    if(sigprocmask(SIG_BLOCK, &mask, NULL) < 0)
+    if(sigprocmask(SIG_BLOCK, &mask, nullptr) < 0)
     {
       throw;
     }
 
     fd = signalfd(-1, &mask, SFD_NONBLOCK | SFD_CLOEXEC);
+    Poller::get()->addListener(this);
   }
 
   Signal::Manager::~Manager()
   {
+    Poller::get()->removeListener(this);
+  }
+
+  void Signal::Manager::willFork()
+  {
+    stop();
+    close(fd);
+    fd = -1;
+  }
+
+  void Signal::Manager::forked()
+  {
+    if(sigprocmask(SIG_BLOCK, &mask, nullptr) < 0)
+    {
+      throw;
+    }
+
+    fd = signalfd(fd, &mask, SFD_NONBLOCK | SFD_CLOEXEC);
+    modify(EPOLLIN);
+    start();
   }
 
   Signal::Manager & Signal::Manager::get()
@@ -50,55 +71,32 @@ namespace Overkiz
     return *manager;
   }
 
-  void Signal::Manager::clean()
-  {
-    Manager & manager = get();
-    manager.stop();
-    close(manager.fd);
-    manager.fd = -1;
-  }
-
-  void Signal::Manager::reload()
-  {
-    Manager & manager = get();
-
-    if(sigprocmask(SIG_BLOCK, &manager.mask, NULL) < 0)
-    {
-      throw;
-    }
-
-    manager.fd = signalfd(manager.fd, &manager.mask,
-                          SFD_NONBLOCK | SFD_CLOEXEC);
-    manager.modify(EPOLLIN);
-    manager.start();
-  }
-
   void Signal::Manager::process(uint32_t evts)
   {
     Signal signal;
 
     if(evts & EPOLLIN)
     {
-      while(fd > 0)
+      while(fd > -1)
       {
         ssize_t size = read(fd, &signal.info, sizeof(signal.info));
 
         if(size < 0)
         {
           if(errno != EAGAIN)
+          {
             throw Overkiz::Errno::Exception();
+          }
 
           break;
         }
 
-        if(signal.info.ssi_signo < _NSIG - 1)
+        if(handlers.find(signal.info.ssi_signo) != handlers.end())
         {
-          std::set<Handler *>& hdls = handlers[signal.info.ssi_signo];
+          const auto handlerset = handlers[signal.info.ssi_signo];
 
-          for(std::set<Handler *>::iterator i = hdls.begin();
-              i != hdls.end(); ++i)
+          for(Handler* handler : handlerset)
           {
-            Handler *handler = *i;
             handler->handle(signal);
           }
         }
@@ -116,40 +114,41 @@ namespace Overkiz
       manager.start();
     }
 
-    std::set<Handler *>& handlers = manager.handlers[signal];
-    handlers.insert(handler);
-    ::sigaddset(&manager.mask, signal);
-
-    if(sigprocmask(SIG_BLOCK, &manager.mask, NULL) < 0)
+    if(manager.handlers.find(signal) == manager.handlers.end())
     {
-      throw;
+      ::sigaddset(&manager.mask, signal);
+
+      if(sigprocmask(SIG_BLOCK, &manager.mask, nullptr) < 0)
+      {
+        throw;
+      }
+
+      manager.fd = signalfd(manager.fd, &manager.mask, SFD_NONBLOCK | SFD_CLOEXEC);
     }
 
-    manager.fd = signalfd(manager.fd, &manager.mask,
-                          SFD_NONBLOCK | SFD_CLOEXEC);
+    manager.handlers[signal].insert(handler);
   }
 
   void Signal::Manager::remove(uint32_t signal, Handler *handler)
   {
     Manager & manager = get();
-    std::set<Handler *>& handlers = manager.handlers[signal];
+    auto & handlers = manager.handlers[signal];
     handlers.erase(handler);
-    ::sigdelset(&manager.mask, signal);
 
-    if(sigprocmask(SIG_SETMASK, &manager.mask, NULL) < 0)
+    if(handlers.empty())
     {
-      throw;
+      manager.handlers.erase(signal);
+      ::sigdelset(&manager.mask, signal);
+
+      if(sigprocmask(SIG_SETMASK, &manager.mask, nullptr) < 0)
+      {
+        throw;
+      }
+
+      manager.fd = signalfd(manager.fd, &manager.mask, SFD_NONBLOCK | SFD_CLOEXEC);
     }
 
-    manager.fd = signalfd(manager.fd, &manager.mask,
-                          SFD_NONBLOCK | SFD_CLOEXEC);
-
-    if(manager.handlers->size() == 0)
-    {
-      key = Shared::Pointer<Manager>();
-    }
-
-    if(sigisemptyset(&manager.mask) == 0)
+    if(manager.handlers.empty())
     {
       manager.stop();
     }

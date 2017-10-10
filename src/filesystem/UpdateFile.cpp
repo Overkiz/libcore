@@ -6,12 +6,12 @@
 
 #include "config.h"
 
-#include <stdio.h>
+#include <cstdio>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <string.h>
-#include <errno.h>
+#include <cstring>
+#include <cerrno>
 #include <unistd.h>
 #include <iostream>
 #include <kizbox/framework/core/Log.h>
@@ -132,13 +132,13 @@ namespace Overkiz
       return ret;
     }
 
-    int UpdateFile::write(const char* path, const char* data, const size_t size)
+    int UpdateFile::write(const char* path, const char* data, const size_t size, bool sync)
     {
       int fd = ::open(path, O_CREAT|O_WRONLY|O_TRUNC, S_IRWXU);
 
       if(fd < 0)
       {
-        OVK_ERROR("%s > open error : (%s)", __FUNCTION__, strerror(errno));
+        OVK_ERROR("%s > open error : %s (%s)",__FUNCTION__ ,path , strerror(errno));
         return -1;
       }
 
@@ -146,9 +146,37 @@ namespace Overkiz
 
       if(w < 0 || w != (int)size)
       {
-        OVK_ERROR("%s > write error : (%s)", __FUNCTION__, strerror(errno));
+        OVK_ERROR("%s > write error : %s (%s)",__FUNCTION__ ,path , strerror(errno));
         ::close(fd);
         return -1;
+      }
+
+      if(sync)
+      {
+        fsync(fd);
+        //fsync prev directory
+        std::string f(path);
+        std::string parent = f.substr(0, f.find_last_of('/'));
+        int fdd = ::open(parent.c_str(),  O_RDONLY);
+
+        if(fdd < 0)
+        {
+          ::close(fd);
+          return -1;
+        }
+
+        if(::fsync(fdd))
+        {
+          ::close(fd);
+          close(fdd);
+          return -1;
+        }
+
+        if(::close(fdd))
+        {
+          ::close(fd);
+          return -1;
+        }
       }
 
       if(::close(fd) != 0)
@@ -159,11 +187,11 @@ namespace Overkiz
       return w;
     }
 
-    int UpdateFile::update(const char* file, const char* data, const size_t size)
+    int UpdateFile::update(const char* file, const char* data, const size_t size, bool sync)
     {
       int ret=-1;
 
-      if(file == NULL)
+      if(file == nullptr)
       {
         return ret;
       }
@@ -173,12 +201,7 @@ namespace Overkiz
       if((stat(file, &sb) < 0) || (sb.st_size != (int)size) || (sb.st_size > COMPARE_MAX_SIZE))
       {
         // update or new file;
-        ret= write(file,data,size);
-
-        if(ret>0)
-        {
-          ::sync();
-        }
+        ret= write(file,data,size, sync);
       }
       else
       {
@@ -192,17 +215,12 @@ namespace Overkiz
         }
 
         ::close(fd);
-        write(name,data,size);
+        write(name,data,size, false);
 
         if(compare(name,file) == false)
         {
           // update file
-          ret= write(file,data,size);
-
-          if(ret>0)
-          {
-            ::sync();
-          }
+          ret= write(file,data,size, sync);
         }
         else
         {

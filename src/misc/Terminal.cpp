@@ -6,12 +6,17 @@
 
 #include <unistd.h>
 #include <sys/types.h>
-#include <errno.h>
-#include <string.h>
-#include <stdio.h>
+#include <cerrno>
+#include <cstring>
+#include <cstdio>
+#include <sys/file.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <linux/serial.h>
 
 #include <kizbox/framework/core/Exception.h>
 #include <kizbox/framework/core/Errno.h>
+#include <kizbox/framework/core/Log.h>
 #include "Terminal.h"
 
 namespace Overkiz
@@ -20,7 +25,7 @@ namespace Overkiz
   namespace Terminal
   {
 
-#define IS_NOT_OPEN -1
+#define IS_NOT_OPEN (-1)
 
     namespace Exception
     {
@@ -67,6 +72,11 @@ namespace Overkiz
       const char * Close::getId() const
       {
         return "com.overkiz.Kizbox.Framework.Core.Terminal.Close.Error.BadFd";
+      }
+
+      const char * Locked::getId() const
+      {
+        return "com.overkiz.Kizbox.Framework.Core.Terminal.Locked";
       }
 
       const char * Configuration::getId() const
@@ -120,16 +130,19 @@ namespace Overkiz
         }
       }
 
+
+      const char * Latency::getId() const
+      {
+        return "com.overkiz.Kizbox.Framework.Core.Terminal.Latency";
+      }
+
     }
 
-    Base::Base()
+    Base::Base(bool lock) :
+      _flags(0),_delegate(nullptr),_currentStatus(0),_waitStatus(0),_lock(lock)
     {
-      flags = 0;
-      delegate = NULL;
       this->fd = IS_NOT_OPEN;
-      currentStatus = 0;
-      waitStatus = 0;
-      memset(&config, 0, sizeof(struct termios));
+      memset(&_config, 0, sizeof(struct termios));
     }
 
     Base::~Base()
@@ -141,30 +154,38 @@ namespace Overkiz
     {
       if(status & Stream::OPENED)
       {
-        waitStatus |= Stream::OPENED;
+        _waitStatus |= Stream::OPENED;
       }
       else
       {
-        waitStatus &= ~Stream::OPENED;
+        _waitStatus &= ~Stream::OPENED;
       }
 
-      return currentStatus;
+      return _currentStatus;
     }
 
-    void Base::open() throw(Exception::Open, Exception::Configuration)
+    void Base::open() throw(Exception::Open, Exception::Configuration, Exception::Locked)
     {
-      if(this->delegate == NULL)
+      if(_delegate == nullptr)
       {
         throw Exception::Open(0);
       }
 
-      if((this->fd = ::open(this->path.c_str(), this->flags)) < 0)
+      if((this->fd = ::open(_path.c_str(), _flags)) < 0)
       {
         this->fd = IS_NOT_OPEN;
         throw Exception::Open(errno);
       }
 
-      currentStatus = Stream::OPENED;
+      if(_lock)
+      {
+        if(lockf(this->fd, F_TLOCK,0) != 0)
+        {
+          throw Exception::Locked();
+        }
+      }
+
+      _currentStatus = Stream::OPENED;
       applyConfiguration();
       start();
     }
@@ -179,7 +200,7 @@ namespace Overkiz
       if(::close(this->fd) == 0)
       {
         this->fd = IS_NOT_OPEN;
-        currentStatus = 0;
+        _currentStatus = 0;
       }
       else
       {
@@ -189,32 +210,32 @@ namespace Overkiz
 
     int Base::getStatus() const
     {
-      return currentStatus;
+      return _currentStatus;
     }
 
     int Base::getWaitStatus() const
     {
-      return waitStatus;
+      return _waitStatus;
     }
 
     void Base::setDelegate(Stream::Delegate * newDelegate)
     {
-      this->delegate = newDelegate;
+      _delegate = newDelegate;
     }
 
     void Base::setNoCTtyFlag()
     {
-      this->flags |= O_NOCTTY;
+      _flags |= O_NOCTTY;
     }
 
     void Base::resetCTtyFlag()
     {
-      this->flags &= ~O_NOCTTY;
+      _flags &= ~O_NOCTTY;
     }
 
     void Base::setControlMode(tcflag_t c_cflag) throw(Exception::Configuration)
     {
-      config.c_cflag = c_cflag;
+      _config.c_cflag = c_cflag;
 
       if(!(fd < 0))
       {
@@ -224,7 +245,7 @@ namespace Overkiz
 
     void Base::setLocalMode(tcflag_t c_lflag) throw(Exception::Configuration)
     {
-      config.c_lflag = c_lflag;
+      _config.c_lflag = c_lflag;
 
       if(!(fd < 0))
       {
@@ -234,7 +255,7 @@ namespace Overkiz
 
     void Base::setLine(cc_t c_line) throw(Exception::Configuration)
     {
-      config.c_line = c_line;
+      _config.c_line = c_line;
 
       if(!(fd < 0))
       {
@@ -242,10 +263,116 @@ namespace Overkiz
       }
     }
 
+    void Base::setLowLatency(bool isLowLatency) throw(Exception::Configuration, Overkiz::Errno::Exception)
+    {
+      if(fd < 0)
+        throw Exception::Configuration();
+
+      struct serial_struct new_serinfo;
+
+      if(ioctl(fd, TIOCGSERIAL, &new_serinfo) < 0)
+        throw Overkiz::Errno::Exception();
+
+      if(isLowLatency)
+        new_serinfo.flags |= ASYNC_LOW_LATENCY;
+      else
+        new_serinfo.flags &= ~ASYNC_LOW_LATENCY;
+
+      if(ioctl(fd, TIOCSSERIAL, &new_serinfo) < 0)
+        throw Overkiz::Errno::Exception();
+    }
+
+    void Base::setLatency(uint32_t latencyTimeInMs) throw(Exception::Configuration, Overkiz::Errno::Exception,  Exception::Latency)
+    {
+      if(fd < 0)
+      {
+        throw Exception::Configuration();
+      }
+
+      // only for usb-serial => ttyUSB
+      if(_path.find("ttyUSB") == std::string::npos)
+      {
+        // nothing to do
+        return;
+      }
+
+      size_t pos =  _path.find_last_of('/');
+
+      if(pos == std::string::npos || (_path.length()-pos) < sizeof("ttyUSB0"))
+      {
+        throw Exception::Configuration();
+      }
+
+      pos++; // drop '/'
+      std::string latencyPath = "/sys/bus/usb-serial/devices/"+  _path.substr(pos) + "/latency_timer";
+      struct stat lt;
+
+      if(::stat(latencyPath.c_str(), &lt) < 0)
+      {
+        OVK_DEBUG("%s > file not found : %s ",__FUNCTION__ ,latencyPath.c_str());
+        return;
+      }
+
+      // unlock
+      if(latencyTimeInMs == 1)
+      {
+        setLowLatency(true); // set to 1ms
+        return;
+      }
+      else
+      {
+        setLowLatency(false); // set to 16 ms
+
+        if(latencyTimeInMs == 16)
+        {
+          return;
+        }
+      }
+
+      int sysFd = ::open(latencyPath.c_str(), O_RDWR|O_TRUNC, S_IRWXU);
+
+      if(sysFd < 0)
+      {
+        throw Overkiz::Errno::Exception();
+      }
+
+      std::string value= std::to_string(latencyTimeInMs);
+
+      if(::write(sysFd, value.c_str(), value.length()) != (ssize_t)value.length())
+      {
+        ::close(sysFd);
+        throw Overkiz::Errno::Exception();
+      }
+
+      char data[15];
+      memset(data,0x00,sizeof(data));
+
+      if(lseek(sysFd,0,SEEK_SET) < 0)
+      {
+        ::close(sysFd);
+        throw Overkiz::Errno::Exception();
+      }
+
+      if(::read(sysFd, data, sizeof(data) -1) < 0)
+      {
+        ::close(sysFd);
+        throw Overkiz::Errno::Exception();
+      }
+
+      uint32_t latency = atoi(data);
+      ::close(sysFd);
+
+      if(latency != latencyTimeInMs)
+      {
+        OVK_ERROR("Failed to set latency %u != %u",latency , latencyTimeInMs);
+        throw Exception::Latency();
+      }
+    }
+
     void Base::setControlCharacters(int index, char value)
     throw(Exception::Configuration)
     {
-      config.c_cc[index] = value;
+      _config.c_cc[index] = value;
 
       if(!(fd < 0))
       {
@@ -263,7 +390,7 @@ namespace Overkiz
 
     void Base::applyConfiguration(int when) throw(Exception::Configuration)
     {
-      if(tcsetattr(this->fd, when, &this->config) < 0)
+      if(tcsetattr(this->fd, when, &_config) < 0)
       {
         throw Exception::Configuration();
       }
@@ -271,8 +398,8 @@ namespace Overkiz
 
     Input::Input(const std::string & path)
     {
-      this->path = path;
-      this->flags = O_RDONLY | O_NOCTTY | O_NONBLOCK;
+      _path = path;
+      _flags = O_RDONLY | O_NOCTTY | O_NONBLOCK;
     }
 
     Input::~Input()
@@ -285,20 +412,20 @@ namespace Overkiz
 
       if(status & Stream::INPUT_READY)
       {
-        if(!(currentStatus & Stream::INPUT_READY)
-           && !(waitStatus & Stream::INPUT_READY))
+        if(!(_currentStatus & Stream::INPUT_READY)
+           && !(_waitStatus & Stream::INPUT_READY))
         {
           modify(EPOLLIN | events);
-          waitStatus |= Stream::INPUT_READY;
+          _waitStatus |= Stream::INPUT_READY;
         }
       }
       else
       {
-        waitStatus &= ~Stream::INPUT_READY;
+        _waitStatus &= ~Stream::INPUT_READY;
         modify(~EPOLLIN & events);
       }
 
-      return currentStatus;
+      return _currentStatus;
     }
 
     void Input::process(uint32_t evts)
@@ -306,12 +433,12 @@ namespace Overkiz
       if((evts & EPOLLERR) || (evts & EPOLLHUP))
       {
         this->close();
-        this->delegate->ready(currentStatus);
+        _delegate->ready(_currentStatus);
       }
       else if(evts & EPOLLIN)
       {
-        currentStatus |= Stream::INPUT_READY;
-        delegate->ready(currentStatus);
+        _currentStatus |= Stream::INPUT_READY;
+        _delegate->ready(_currentStatus);
       }
     }
 
@@ -333,7 +460,7 @@ namespace Overkiz
 
       if(dataRead < (ssize_t)size)
       {
-        currentStatus &= ~Stream::INPUT_READY;
+        _currentStatus &= ~Stream::INPUT_READY;
       }
 
       return dataRead;
@@ -341,7 +468,7 @@ namespace Overkiz
 
     void Input::setInputMode(tcflag_t c_iflag) throw(Exception::Configuration)
     {
-      this->config.c_iflag = c_iflag;
+      _config.c_iflag = c_iflag;
 
       if(!(fd < 0))
       {
@@ -351,7 +478,7 @@ namespace Overkiz
 
     void Input::setInputSpeed(speed_t c_ispeed) throw(Exception::Configuration)
     {
-      if(cfsetispeed(&this->config, c_ispeed) < 0)
+      if(cfsetispeed(&_config, c_ispeed) < 0)
       {
         throw Exception::Configuration();
       }
@@ -364,8 +491,8 @@ namespace Overkiz
 
     Output::Output(const std::string & path)
     {
-      this->path = path;
-      this->flags = O_WRONLY | O_NOCTTY | O_NONBLOCK;
+      _path = path;
+      _flags = O_WRONLY | O_NOCTTY | O_NONBLOCK;
     }
 
     Output::~Output()
@@ -378,20 +505,20 @@ namespace Overkiz
 
       if(status & Stream::OUTPUT_READY)
       {
-        if(!(currentStatus & Stream::OUTPUT_READY)
-           && !(waitStatus & Stream::OUTPUT_READY))
+        if(!(_currentStatus & Stream::OUTPUT_READY)
+           && !(_waitStatus & Stream::OUTPUT_READY))
         {
           modify(EPOLLOUT | events);
-          waitStatus |= Stream::OUTPUT_READY;
+          _waitStatus |= Stream::OUTPUT_READY;
         }
       }
       else
       {
-        waitStatus &= ~Stream::OUTPUT_READY;
+        _waitStatus &= ~Stream::OUTPUT_READY;
         modify(~EPOLLOUT & events);
       }
 
-      return currentStatus;
+      return _currentStatus;
     }
 
     void Output::process(uint32_t evts)
@@ -399,13 +526,13 @@ namespace Overkiz
       if((evts & EPOLLERR) || (evts & EPOLLHUP))
       {
         this->close();
-        this->delegate->ready(currentStatus);
+        _delegate->ready(_currentStatus);
       }
       else if(evts & EPOLLOUT)
       {
-        currentStatus |= Stream::OUTPUT_READY;
-        delegate->ready(currentStatus);
-        currentStatus &= ~Stream::OUTPUT_READY;
+        _currentStatus |= Stream::OUTPUT_READY;
+        _delegate->ready(_currentStatus);
+        _currentStatus &= ~Stream::OUTPUT_READY;
       }
     }
 
@@ -428,7 +555,7 @@ namespace Overkiz
 
       if((size_t)dataWritten < size)
       {
-        currentStatus &= ~Stream::OUTPUT_READY;
+        _currentStatus &= ~Stream::OUTPUT_READY;
       }
 
       return dataWritten;
@@ -436,7 +563,7 @@ namespace Overkiz
 
     void Output::setOutputMode(tcflag_t c_oflag) throw(Exception::Configuration)
     {
-      this->config.c_oflag = c_oflag;
+      _config.c_oflag = c_oflag;
 
       if(!(fd < 0))
       {
@@ -446,7 +573,7 @@ namespace Overkiz
 
     void Output::setOutputSpeed(speed_t c_ospeed) throw(Exception::Configuration)
     {
-      if(cfsetospeed(&this->config, c_ospeed) < 0)
+      if(cfsetospeed(&_config, c_ospeed) < 0)
       {
         throw Exception::Configuration();
       }
@@ -460,8 +587,8 @@ namespace Overkiz
     InputOutput::InputOutput(const std::string & path) :
       Input(path), Output(path)
     {
-      this->path = path;
-      this->flags = O_RDWR | O_NOCTTY | O_NONBLOCK;
+      _path = path;
+      _flags = O_RDWR | O_NOCTTY | O_NONBLOCK;
     }
 
     InputOutput::~InputOutput()
@@ -478,36 +605,36 @@ namespace Overkiz
 
         if(status & Stream::INPUT_READY)
         {
-          if(!(currentStatus & Stream::INPUT_READY))
+          if(!(_currentStatus & Stream::INPUT_READY))
           {
             newEvent |= EPOLLIN;
-            waitStatus |= Stream::INPUT_READY;
+            _waitStatus |= Stream::INPUT_READY;
           }
         }
         else
         {
-          waitStatus &= ~Stream::INPUT_READY;
+          _waitStatus &= ~Stream::INPUT_READY;
           newEvent &= ~EPOLLIN;
         }
 
         if(status & Stream::OUTPUT_READY)
         {
-          if(!(currentStatus & Stream::OUTPUT_READY))
+          if(!(_currentStatus & Stream::OUTPUT_READY))
           {
             newEvent |= EPOLLOUT;
-            waitStatus |= Stream::OUTPUT_READY;
+            _waitStatus |= Stream::OUTPUT_READY;
           }
         }
         else
         {
-          waitStatus &= ~Stream::OUTPUT_READY;
+          _waitStatus &= ~Stream::OUTPUT_READY;
           newEvent &= ~EPOLLOUT;
         }
 
         modify(newEvent);
       }
 
-      return currentStatus;
+      return _currentStatus;
     }
 
     void InputOutput::process(uint32_t evts)
@@ -515,22 +642,22 @@ namespace Overkiz
       if((evts & EPOLLERR) || (evts & EPOLLHUP))
       {
         this->close();
-        this->delegate->ready(currentStatus);
+        _delegate->ready(_currentStatus);
       }
       else if((evts & EPOLLIN) || (evts & EPOLLOUT))
       {
         if(evts & EPOLLIN)
         {
-          currentStatus |= Stream::INPUT_READY;
+          _currentStatus |= Stream::INPUT_READY;
         }
 
         if(evts & EPOLLOUT)
         {
-          currentStatus |= Stream::OUTPUT_READY;
+          _currentStatus |= Stream::OUTPUT_READY;
         }
 
-        delegate->ready(currentStatus);
-        currentStatus &= ~Stream::OUTPUT_READY;
+        _delegate->ready(_currentStatus);
+        _currentStatus &= ~Stream::OUTPUT_READY;
       }
     }
 

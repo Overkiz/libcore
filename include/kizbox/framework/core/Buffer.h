@@ -248,11 +248,9 @@ namespace Overkiz
         {
           assert(status & Overkiz::Stream::INPUT_READY);
           assert(data);
-          assert(size >= 0);
           assert(inputSize);
           assert(inputData);
           size_t read = MIN(size, (inputSize - inputIndex));
-          assert(read >= 0);
 
           if(read > 0)
           {
@@ -378,11 +376,9 @@ namespace Overkiz
         {
           assert(status & Overkiz::Stream::OUTPUT_READY);
           assert(data);
-          assert(size >= 0);
           assert(outputSize);
           assert(outputData);
           size_t wrote = MIN(size, (outputSize - outputIndex));
-          assert(wrote >= 0);
 
           if(wrote > 0)
           {

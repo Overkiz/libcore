@@ -4,8 +4,8 @@
  *      Copyright (C) 2015 Overkiz SA.
  */
 
-#include <math.h>
-#include <stdio.h>
+#include <cmath>
+#include <cstdio>
 #include "Log.h"
 #include "Twilight.h"
 
@@ -135,7 +135,7 @@ namespace Overkiz
   }
 
 
-  const Twilight::Angle Twilight::getAngleFromString(const std::string& angle)
+  Twilight::Angle Twilight::getAngleFromString(const std::string& angle)
   {
     auto it =  AngleMap.find(angle);
 
@@ -146,12 +146,12 @@ namespace Overkiz
     return (DEFAULT_ANGLE);
   }
 
-  const std::string Twilight::getStringFromAngle(const Twilight::Angle angle)
+  std::string Twilight::getStringFromAngle(const Twilight::Angle angle)
   {
-    for(auto it = AngleMap.begin(); it != AngleMap.end(); it++)
+    for(const auto & it : AngleMap)
     {
-      if(it->second == angle)
-        return (it->first);
+      if(it.second == angle)
+        return (it.first);
     }
 
     OVK_WARNING("%s> unknown angle \"%d\"", __FUNCTION__, angle);

@@ -9,8 +9,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <string.h>
-#include <errno.h>
+#include <cstring>
+#include <cerrno>
 #include <unistd.h>
 #include <iostream>
 
@@ -27,7 +27,7 @@ namespace Overkiz
   {
 
     Base::Base() :
-      status(0), delegate(NULL), fd(-1), flags(0)
+      status(0), delegate(nullptr), fd(-1), flags(0)
     {
     }
 

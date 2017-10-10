@@ -4,9 +4,9 @@
  *      Copyright (C) 2015 Overkiz SA.
  */
 
-#include <signal.h>
+#include <csignal>
 #include <unistd.h>
-#include <limits.h>
+#include <climits>
 #include "Thread.h"
 #include <kizbox/framework/core/Errno.h>
 
@@ -62,7 +62,7 @@ namespace Overkiz
 
   Thread::Stack::Stack()
   {
-    address = NULL;
+    address = nullptr;
     size = 0;
     guardSize = 0;
   }
@@ -106,7 +106,10 @@ namespace Overkiz
 
   Thread::Configuration::Configuration()
   {
-    pthread_attr_init(&attributes);
+    if(pthread_attr_init(&attributes) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   Thread::Configuration::~Configuration()
@@ -157,31 +160,58 @@ namespace Overkiz
   Thread::Scope Thread::Configuration::getScopeProperty()
   {
     Scope scope;
-    pthread_attr_getscope(&attributes, (int *)(&scope));
+
+    if(pthread_attr_getscope(&attributes, (int *)(&scope)) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
     return scope;
   }
 
   void Thread::Configuration::setScopeProperty(Scope scope)
   {
-    pthread_attr_setscope(&attributes, scope);
+    if(pthread_attr_setscope(&attributes, scope) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   void Thread::Configuration::getStack(Stack& stack)
   {
-    pthread_attr_getstack(&attributes, &stack.address, &stack.size);
-    pthread_attr_getguardsize(&attributes, &stack.guardSize);
+    if(pthread_attr_getstack(&attributes, &stack.address, &stack.size) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
+    if(pthread_attr_getguardsize(&attributes, &stack.guardSize) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   void Thread::Configuration::setStack(Stack& stack)
   {
-    pthread_attr_setstack(&attributes, stack.address, stack.size);
-    pthread_attr_setguardsize(&attributes, stack.guardSize);
+    if(pthread_attr_setstack(&attributes, stack.address, stack.size) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
+    if(pthread_attr_setguardsize(&attributes, stack.guardSize) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   bool Thread::Configuration::isJoindedToParent()
   {
     int detachstate;
-    pthread_attr_getdetachstate(&attributes, &detachstate);
+
+    if(pthread_attr_getdetachstate(&attributes, &detachstate) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
     return detachstate == PTHREAD_CREATE_JOINABLE ? true : false;
   }
 
@@ -189,7 +219,11 @@ namespace Overkiz
   {
     int detachstate =
       join == true ? PTHREAD_CREATE_JOINABLE : PTHREAD_CREATE_DETACHED;
-    pthread_attr_setdetachstate(&attributes, detachstate);
+
+    if(pthread_attr_setdetachstate(&attributes, detachstate)  != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
 
@@ -234,7 +268,10 @@ namespace Overkiz
 
   Thread::Lock::Configuration::Configuration()
   {
-    pthread_mutexattr_init(&attributes);
+    if(pthread_mutexattr_init(&attributes) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   Thread::Lock::Configuration::~Configuration()
@@ -245,19 +282,32 @@ namespace Overkiz
   Thread::Lock::Type Thread::Lock::Configuration::getType()
   {
     Type type;
-    pthread_mutexattr_gettype(&attributes, (int *)(&type));
+
+    if(pthread_mutexattr_gettype(&attributes, (int *)(&type)) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
     return type;
   }
 
   void Thread::Lock::Configuration::setType(Type type)
   {
-    pthread_mutexattr_settype(&attributes, type);
+    if(pthread_mutexattr_settype(&attributes, type) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   Thread::Scope Thread::Lock::Configuration::getScope()
   {
     int scope;
-    pthread_mutexattr_getpshared(&attributes, &scope);
+
+    if(pthread_mutexattr_getpshared(&attributes, &scope) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
     return scope == PTHREAD_PROCESS_SHARED ? SCOPE_SYSTEM : SCOPE_PROCESS;
   }
 
@@ -277,17 +327,26 @@ namespace Overkiz
         break;
     }
 
-    pthread_mutexattr_setpshared(&attributes, newScope);
+    if(pthread_mutexattr_setpshared(&attributes, newScope) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   Thread::Lock::Lock()
   {
-    pthread_mutex_init(&lock, NULL);
+    if(pthread_mutex_init(&lock, nullptr) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   Thread::Lock::Lock(Configuration& config)
   {
-    pthread_mutex_init(&lock, &config.attributes);
+    if(pthread_mutex_init(&lock, &config.attributes) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   Thread::Lock::~Lock()
@@ -297,7 +356,10 @@ namespace Overkiz
 
   void Thread::Lock::acquire()
   {
-    pthread_mutex_lock(&lock);
+    if(pthread_mutex_lock(&lock) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   bool Thread::Lock::tryToAcquire()
@@ -308,12 +370,18 @@ namespace Overkiz
 
   void Thread::Lock::release()
   {
-    pthread_mutex_unlock(&lock);
+    if(pthread_mutex_unlock(&lock) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   Thread::ReadWriteLock::Configuration::Configuration()
   {
-    pthread_rwlockattr_init(&attributes);
+    if(pthread_rwlockattr_init(&attributes) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   Thread::ReadWriteLock::Configuration::~Configuration()
@@ -324,7 +392,12 @@ namespace Overkiz
   Thread::Scope Thread::ReadWriteLock::Configuration::getScope()
   {
     int scope;
-    pthread_rwlockattr_getpshared(&attributes, &scope);
+
+    if(pthread_rwlockattr_getpshared(&attributes, &scope) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
     return scope == PTHREAD_PROCESS_SHARED ? SCOPE_SYSTEM : SCOPE_PROCESS;
   }
 
@@ -333,29 +406,47 @@ namespace Overkiz
     int newScope = scope == SCOPE_SYSTEM ?
                    PTHREAD_PROCESS_SHARED :
                    PTHREAD_PROCESS_PRIVATE;
-    pthread_rwlockattr_setpshared(&attributes, newScope);
+
+    if(pthread_rwlockattr_setpshared(&attributes, newScope) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   Thread::ReadWriteLock::Policy Thread::ReadWriteLock::Configuration::getPolicy()
   {
     Policy policy;
-    pthread_rwlockattr_getkind_np(&attributes, (int *)(&policy));
+
+    if(pthread_rwlockattr_getkind_np(&attributes, (int *)(&policy)) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
     return policy;
   }
 
   void Thread::ReadWriteLock::Configuration::setPolicy(Policy policy)
   {
-    pthread_rwlockattr_setkind_np(&attributes, policy);
+    if(pthread_rwlockattr_setkind_np(&attributes, policy) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   Thread::ReadWriteLock::ReadWriteLock()
   {
-    pthread_rwlock_init(&lock, NULL);
+    if(pthread_rwlock_init(&lock, nullptr) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   Thread::ReadWriteLock::ReadWriteLock(Configuration& config)
   {
-    pthread_rwlock_init(&lock, &config.attributes);
+    if(pthread_rwlock_init(&lock, &config.attributes) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   Thread::ReadWriteLock::~ReadWriteLock()
@@ -365,7 +456,10 @@ namespace Overkiz
 
   void Thread::ReadWriteLock::acquireReadAccess()
   {
-    pthread_rwlock_rdlock(&lock);
+    if(pthread_rwlock_rdlock(&lock) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   bool Thread::ReadWriteLock::tryToAcquireReadAccess()
@@ -375,7 +469,10 @@ namespace Overkiz
 
   void Thread::ReadWriteLock::acquireWriteAccess()
   {
-    pthread_rwlock_wrlock(&lock);
+    if(pthread_rwlock_wrlock(&lock) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   bool Thread::ReadWriteLock::tryToAcquireWriteAccess()
@@ -385,12 +482,18 @@ namespace Overkiz
 
   void Thread::ReadWriteLock::release()
   {
-    pthread_rwlock_unlock(&lock);
+    if(pthread_rwlock_unlock(&lock) !=0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   Thread::Signal::Configuration::Configuration()
   {
-    pthread_condattr_init(&attributes);
+    if(pthread_condattr_init(&attributes) != 0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   Thread::Signal::Configuration::~Configuration()
@@ -401,7 +504,12 @@ namespace Overkiz
   Thread::Scope Thread::Signal::Configuration::getScope()
   {
     int scope;
-    pthread_condattr_getpshared(&attributes, &scope);
+
+    if(pthread_condattr_getpshared(&attributes, &scope) !=0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
     return scope == PTHREAD_PROCESS_SHARED ? SCOPE_SYSTEM : SCOPE_PROCESS;
   }
 
@@ -410,31 +518,63 @@ namespace Overkiz
     int newScope = scope == SCOPE_SYSTEM ?
                    PTHREAD_PROCESS_SHARED :
                    PTHREAD_PROCESS_PRIVATE;
-    pthread_condattr_setpshared(&attributes, newScope);
+
+    if(pthread_condattr_setpshared(&attributes, newScope) !=0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   Thread::Signal::Signal()
   {
-    pthread_cond_init(&condition, NULL);
-    pthread_mutex_init(&lock, NULL);
+    if(pthread_cond_init(&condition, nullptr) !=0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
+    if(pthread_mutex_init(&lock, nullptr) !=0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   Thread::Signal::Signal(Configuration& config)
   {
-    pthread_cond_init(&condition, &config.attributes);
-    pthread_mutex_init(&lock, NULL);
+    if(pthread_cond_init(&condition, &config.attributes) !=0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
+    if(pthread_mutex_init(&lock, nullptr) !=0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   Thread::Signal::Signal(Lock::Configuration& lockConfig)
   {
-    pthread_cond_init(&condition, NULL);
-    pthread_mutex_init(&lock, &lockConfig.attributes);
+    if(pthread_cond_init(&condition, nullptr) !=0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
+    if(pthread_mutex_init(&lock, &lockConfig.attributes) !=0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   Thread::Signal::Signal(Configuration& config, Lock::Configuration& lockConfig)
   {
-    pthread_cond_init(&condition, &config.attributes);
-    pthread_mutex_init(&lock, &lockConfig.attributes);
+    if(pthread_cond_init(&condition, &config.attributes) !=0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
+    if(pthread_mutex_init(&lock, &lockConfig.attributes) !=0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   Thread::Signal::~Signal()
@@ -445,21 +585,48 @@ namespace Overkiz
 
   void Thread::Signal::broadcast()
   {
-    pthread_mutex_lock(&lock);
-    pthread_cond_broadcast(&condition);
-    pthread_mutex_unlock(&lock);
+    if(pthread_mutex_lock(&lock) !=0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
+    if(pthread_cond_broadcast(&condition) !=0)
+    {
+      pthread_mutex_unlock(&lock);
+      throw Overkiz::Errno::Exception();
+    }
+
+    if(pthread_mutex_unlock(&lock) !=0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   void Thread::Signal::send()
   {
-    pthread_mutex_lock(&lock);
-    pthread_cond_signal(&condition);
-    pthread_mutex_unlock(&lock);
+    if(pthread_mutex_lock(&lock) !=0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
+    if(pthread_cond_signal(&condition) !=0)
+    {
+      pthread_mutex_unlock(&lock);
+      throw Overkiz::Errno::Exception();
+    }
+
+    if(pthread_mutex_unlock(&lock) !=0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   void Thread::Signal::wait()
   {
-    pthread_cond_wait(&condition, &lock);
+    if(pthread_cond_wait(&condition, &lock) !=0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   bool Thread::Signal::wait(Timeout& timeout)
@@ -495,7 +662,7 @@ namespace Overkiz
 
   Thread::~Thread()
   {
-    delegate = NULL;
+    delegate = nullptr;
   }
 
   Shared::Pointer<Thread>& Thread::self()
@@ -508,7 +675,7 @@ namespace Overkiz
     return *key;
   }
 
-  void Thread::checkChildren()
+  void Thread::checkChildren() throw(Overkiz::Errno::Exception)
   {
     auto it = children.begin();
 
@@ -521,16 +688,32 @@ namespace Overkiz
       switch((*it)->status)
       {
         case STATUS_IDLE:
-          pthread_create(& tr->id, &config.attributes, startCallback,
-                         tr);
+        {
+          if(pthread_create(& tr->id, &tr->config.attributes, startCallback, tr) != 0)
+          {
+            (*it)->lock.release();
+            throw Overkiz::Errno::Exception();
+          }
+
           (*it)->status = STATUS_STARTING;
           (*it)->lock.release();
           it++;
-          break;
+        }
+        break;
 
         case STATUS_STOPPED:
+        {
           void *ret;
-          pthread_join(tr->id, &ret);
+
+          if(int err = pthread_join(tr->id, &ret) != 0)
+          {
+            if(err != ESRCH)
+            {
+              (*it)->lock.release();
+              throw Overkiz::Errno::Exception();
+            }
+          }
+
           tr->status = STATUS_IDLE;
 
           if(tr->delegate)
@@ -540,7 +723,8 @@ namespace Overkiz
 
           (*it)->lock.release();
           it = children.erase(it);
-          break;
+        }
+        break;
 
         case STATUS_RUNNING:
         case STATUS_STARTING:
@@ -553,7 +737,7 @@ namespace Overkiz
     }
   }
 
-  void Thread::addChild(Shared::Pointer<Thread>& child)
+  void Thread::addChild(Shared::Pointer<Thread>& child) throw(Overkiz::Errno::Exception)
   {
     Shared::Pointer<Thread> current = self();
     child->lock.acquire();
@@ -621,7 +805,7 @@ namespace Overkiz
   {
     Shared::Pointer<Thread> current = self();
 
-    for(ThreadIterator i = current->children.begin();
+    for(auto i = current->children.begin();
         i != current->children.end(); i++)
     {
       (*i)->lock.acquire();
@@ -672,7 +856,12 @@ namespace Overkiz
       }
     }
 
-    pthread_detach(child->id);
+    if(pthread_detach(child->id) !=0)
+    {
+      child->lock.release();
+      throw Overkiz::Errno::Exception();
+    }
+
     child->parent = Shared::Pointer<Thread>();
     child->lock.release();
   }
@@ -695,7 +884,12 @@ namespace Overkiz
 
     void *ret;
     child->lock.release();
-    pthread_join(child->id, &ret);
+
+    if(pthread_join(child->id, &ret) !=0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
+
     child->lock.acquire();
     auto it = current->children.begin();
 
@@ -723,7 +917,10 @@ namespace Overkiz
       throw;
     }
 
-    pthread_kill(id, sig);
+    if(pthread_kill(id, sig) !=0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   void Thread::setDelegate(Delegate *newDelegate)
@@ -763,7 +960,10 @@ namespace Overkiz
       throw;
     }
 
-    pthread_cancel(this->id);
+    if(pthread_cancel(this->id) !=0)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
   void Thread::started(Thread *child)

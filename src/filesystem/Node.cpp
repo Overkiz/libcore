@@ -4,7 +4,7 @@
  *      Copyright (C) 2015 Overkiz SA.
  */
 
-#include <string.h>
+#include <cstring>
 
 #include <kizbox/framework/core/Node.h>
 
@@ -27,15 +27,15 @@ namespace Overkiz
 
       if(!pathTemp.empty())
       {
-        if(pathTemp.find_last_of("/") == (pathTemp.size() - 1))
+        if(pathTemp.find_last_of('/') == (pathTemp.size() - 1))
         {
           pathTemp.erase((pathTemp.size() - 1));
         }
 
-        this->path = pathTemp.substr(0, pathTemp.find_last_of("/"));
+        this->path = pathTemp.substr(0, pathTemp.find_last_of('/'));
         this->path.append("/");
-        this->name = pathTemp.substr((pathTemp.find_last_of("/") + 1),
-                                     (pathTemp.size() - pathTemp.find_last_of("/")));
+        this->name = pathTemp.substr((pathTemp.find_last_of('/') + 1),
+                                     (pathTemp.size() - pathTemp.find_last_of('/')));
         *this = Node(this->path, this->name);
       }
     }
@@ -86,14 +86,7 @@ namespace Overkiz
 
     bool Node::isExisting()
     {
-      if(name.empty() || path.empty())
-      {
-        return (false);
-      }
-      else
-      {
-        return (true);
-      }
+      return !name.empty() && !path.empty();
     }
 
     const std::string & Node::getName() const

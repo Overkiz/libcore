@@ -7,8 +7,10 @@
 #include <config.h>
 #include <unistd.h>
 #include <sys/mman.h>
-#include <string.h>
-#include <stdio.h>
+#include <cstring>
+#include <cstdio>
+
+#include <kizbox/framework/core/Errno.h>
 
 extern "C" {
   #ifdef VALGRIND
@@ -25,6 +27,15 @@ extern "C" {
 
 namespace Overkiz
 {
+  #ifndef ASM_COROUTINE
+  void Coroutine::launchCoro(Coroutine * coroutine)
+  {
+    coroutine->launch();
+
+    if(setcontext(& coroutine->caller->ctx) == -1)
+      throw Overkiz::Errno::Exception();
+  }
+  #endif
 
   Coroutine::Coroutine(size_t initsize)
   {
@@ -41,7 +52,7 @@ namespace Overkiz
     }
 
     size += (2 * MPROTECT_SIZE * pgsize);
-    stack.base = mmap(NULL, size, PROT_READ | PROT_WRITE,
+    stack.base = mmap(nullptr, size, PROT_READ | PROT_WRITE,
                       MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
     if(stack.base == MAP_FAILED)
@@ -57,19 +68,35 @@ namespace Overkiz
                  (unsigned char *)stack.base + (MPROTECT_SIZE * pgsize),
                  (unsigned char *)stack.base + size - (MPROTECT_SIZE * pgsize) - 1);
     #endif
+    #ifdef ASM_COROUTINE
     stack.top = Architecture::Context::init(
                   (unsigned char *) stack.base + size - (MPROTECT_SIZE * pgsize) - 1,
                   this);
+    #else
+
+    if(getcontext(&ctx) == -1)
+      throw Overkiz::Errno::Exception();
+
+    ctx.uc_stack.ss_size = size - (MPROTECT_SIZE * pgsize);
+    ctx.uc_stack.ss_sp = stack.base;
+    ctx.uc_link = nullptr;
+    #endif
   }
 
   Coroutine::Coroutine()
   {
-    stack.base = NULL;
-    stack.top = NULL;
+    stack.base = nullptr;
+    stack.top = nullptr;
     size = 0;
     state = Status::RUNNING;
     #ifdef VALGRIND
     valgrind = 0;
+    #endif
+    #ifndef ASM_COROUTINE
+
+    if(getcontext(&ctx) == -1)
+      throw Overkiz::Errno::Exception();
+
     #endif
   }
 
@@ -105,7 +132,7 @@ namespace Overkiz
     }
 
     coro->caller = self();
-    Shared::Pointer<Coroutine> coroutine = coro;
+    const Shared::Pointer<Coroutine>& coroutine = coro;
     coroutine->caller->state = Status::WAITING;
     *current = coroutine;
 
@@ -114,7 +141,19 @@ namespace Overkiz
       coroutine->restore();
     }
 
+    #ifdef ASM_COROUTINE
     Architecture::Context::resume(coroutine->stack.top);
+    #else
+
+    if(coroutine->state == Status::STOPPED)
+    {
+      makecontext(&coroutine->ctx, (void (*)(void))launchCoro, 1, &(*coroutine));
+    }
+
+    if(swapcontext(&coroutine->caller->ctx, &coroutine->ctx) == -1)
+      throw Overkiz::Errno::Exception();
+
+    #endif
     *current = coroutine->caller;
     coroutine->caller->state = Status::RUNNING;
     coroutine->caller = Shared::Pointer<Coroutine>();
@@ -129,7 +168,15 @@ namespace Overkiz
       Shared::Pointer<Coroutine> parent = coro->caller;
       coro->state = Status::PAUSED;
       coro->save();
+      #ifdef ASM_COROUTINE
       Architecture::Context::yield(coro->stack.top);
+      #else
+
+      //Save current context
+      if(swapcontext(&coro->ctx, &parent->ctx) == -1)
+        throw Overkiz::Errno::Exception();
+
+      #endif
       coro->state = Status::RUNNING;
     }
     else

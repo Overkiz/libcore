@@ -5,20 +5,19 @@
  */
 
 #include <unistd.h>
-#include <stdio.h>
-#include <errno.h>
-#include <string.h>
+#include <cstdio>
+#include <cerrno>
+#include <cstring>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <signal.h>
+#include <csignal>
 #include <sys/wait.h>
 #include <sys/file.h>
 
 #include <config.h>
 #include <kizbox/framework/core/Log.h>
 #include <kizbox/framework/core/Errno.h>
-#include <kizbox/framework/core/Signal.h>
 #include "Daemon.h"
 
 #define PIDDIR "PIDDIR"
@@ -27,7 +26,7 @@
 namespace Overkiz
 {
 
-  Daemon::Daemon() : lock(0)
+  Daemon::Daemon() : lock(-1)
   {
     updatePidFile();
   }
@@ -74,7 +73,7 @@ namespace Overkiz
 
   void Daemon::makePidFile(int pid)
   {
-    if(pidfile.empty() || lock <= 0)
+    if(pidfile.empty() || lock < 0)
     {
       return;
     }
@@ -132,8 +131,11 @@ namespace Overkiz
   {
     if(forkk)
     {
-      // Because Signalfd need to block signals, we need to release signals before fork
-      Signal::Manager::clean();
+      for(auto it : eventListeners)
+      {
+        it->willFork();
+      }
+
       // Fork, allowing the parent process to terminate.
       pid_t pid = fork();
 
@@ -171,16 +173,26 @@ namespace Overkiz
         exit(0);
       }
 
-      close(lock);
+      if(lock > -1)
+      {
+        close(lock);
+      }
+
       OVK_NOTICE("Daemonize process %s. (%i)", ::program_invocation_short_name, getpid());
       // Close and reopen standard file descriptors.
       redirectToNull();
-      Signal::Manager::reload();
+
+      for(auto it : eventListeners)
+      {
+        it->forked();
+      }
     }
     else
     {
       makePidFile(getpid());
     }
+
+    eventListeners.clear();
   }
 
   void Daemon::checkPidFile()
@@ -236,7 +248,7 @@ namespace Overkiz
         // And the app have the same name, but not the same pid
         if(strcmp(bf, bf2) == 0)
         {
-          if(std::string(buff).compare(std::to_string(getpid())) == 0)
+          if(std::string(buff) == std::to_string(getpid()))
           {
             OVK_NOTICE("Restarting Apps.");
           }

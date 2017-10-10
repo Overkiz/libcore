@@ -17,11 +17,11 @@ namespace Overkiz
     class UpdateFile
     {
     public:
-      static int update(const char* file, const char* data, const size_t size);
+      static int update(const char* file, const char* data, const size_t size, bool sync = true);
 
       static int md5(const char* file,unsigned char output[16]);
       static bool compare(const char* file1, const char* file2);
-      static int write(const char* path, const char* data, const size_t size);
+      static int write(const char* path, const char* data, const size_t size, bool sync = true);
     };
 
   }

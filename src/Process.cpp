@@ -25,11 +25,21 @@ namespace Overkiz
 
   void Process::exec(const char *name, char * const argv[], char * const envp[])
   {
-    execve(name, argv, envp);
+    if(execve(name, argv, envp) == -1)
+    {
+      throw Overkiz::Errno::Exception();
+    }
   }
 
-  Shared::Pointer<Process> Process::fork()
+  bool Process::fork(const Shared::Pointer<OnChildTerminated> & sub)
   {
+    bool ret = 0;
+    //Subscribe to this signal to wait terminated
+
+    if(current.empty())
+      current = Shared::Pointer<Process>::create();
+
+    Signal::Manager::add(SIGCLD, & (*current));
     pid_t pid = ::fork();
 
     if(pid < 0)
@@ -41,29 +51,22 @@ namespace Overkiz
 
     if(!pid)
     {
-      proc->id = getpid();
-      Signal::Manager::add(SIGCLD, & (*proc));
+      //child
       current = proc;
+      current->id = getpid();
+      ret = true;
     }
     else
     {
+      //parent
       proc->id = pid;
       lock.acquire();
       current->children[pid] = proc;
+      proc->terminatedListeners = sub;
       lock.release();
-
-      if(waitpid(pid, &proc->state, WNOHANG) > 0)
-      {
-        if(WIFEXITED(proc->state) || WIFSIGNALED(proc->state))
-        {
-          lock.acquire();
-          current->children.erase(pid);
-          lock.release();
-        }
-      }
     }
 
-    return proc;
+    return ret;
   }
 
   void Process::send(uint32_t signal)
@@ -78,13 +81,31 @@ namespace Overkiz
   {
     if(signal.info.ssi_signo == SIGCLD)
     {
-      waitpid(signal.info.ssi_pid, &state, WNOHANG);
+      int pid, state;
 
-      if(WIFEXITED(state) || WIFSIGNALED(state))
+      while((pid = waitpid(-1, &state, WNOHANG)) > 0)
       {
-        lock.acquire();
-        current->children.erase(signal.info.ssi_pid);
-        lock.release();
+        const auto& f = current->children.find(pid);
+
+        if(f != current->children.end())
+        {
+          if(WIFEXITED(state) || WIFSIGNALED(state))
+          {
+            lock.acquire();
+
+            if(!f->second->terminatedListeners.empty())
+              f->second->terminatedListeners->terminated(state);
+
+            current->children.erase(pid);
+
+            if(current->children.empty())
+            {
+              Signal::Manager::remove(SIGCLD, this);
+            }
+
+            lock.release();
+          }
+        }
       }
     }
   }
@@ -104,7 +125,7 @@ namespace Overkiz
     pid_t pid = 0;
     int status = EXIT_FAILURE;
     OVK_DEBUG("System run %s.", command);
-    pid = vfork();
+    pid = vfork(); /* Replace by posix_spawn() ? */
 
     if(pid == -1)
     {
@@ -112,7 +133,7 @@ namespace Overkiz
     }
     else if(pid == 0) /* child */
     {
-      if(execl("/bin/sh", "sh", "-c", command, (char *) 0) == -1)
+      if(execl("/bin/sh", "sh", "-c", command, (char *)nullptr) == -1)
       {
         OVK_ERROR("System call failed. Failed to run \"%s\"! (%s)", command, strerror(errno));
       }
@@ -128,6 +149,5 @@ namespace Overkiz
   }
 
   Thread::Lock Process::lock;
-  Shared::Pointer<Process> Process::current = Shared::Pointer<Process>::create();
-  std::map<pid_t, Shared::Pointer<Process>> Process::children;
+  Shared::Pointer<Process> Process::current ;
 }

@@ -20,6 +20,8 @@
 namespace Overkiz
 {
 
+  const std::string demangle(const char *name);
+
   class Library
   {
   private:
@@ -63,17 +65,17 @@ namespace Overkiz
     private:
       __attribute__((constructor)) static void add()
       {
-        if(current)
+        if(_current)
         {
-          current->symbols.insert(&symbol);
+          _current->_symbols.insert(&symbol);
         }
       }
 
       __attribute__((destructor)) static void remove()
       {
-        if(current)
+        if(_current)
         {
-          current->symbols.erase(&symbol);
+          _current->_symbols.erase(&symbol);
         }
       }
 
@@ -92,30 +94,30 @@ namespace Overkiz
       public:
         Reference()
         {
-          handler = NULL;
-          symbol = NULL;
+          _handler = NULL;
+          _symbol = NULL;
         }
 
         Reference(const Reference& val)
         {
-          handler = NULL;
-          symbol = NULL;
+          _handler = NULL;
+          _symbol = NULL;
 
-          if(val.handler)
+          if(val._handler)
           {
-            Library::lock.acquire();
-            handler = val.handler;
-            handler->count++;
-            symbol = val.symbol;
-            Library::lock.release();
+            Library::_lock.acquire();
+            _handler = val._handler;
+            _handler->_count++;
+            _symbol = val._symbol;
+            Library::_lock.release();
           }
         }
 
         template<typename T>
         Reference(const Reference<T>& val)
         {
-          handler = NULL;
-          symbol = NULL;
+          _handler = NULL;
+          _symbol = NULL;
 
           if(val.symbol && val.handler)
           {
@@ -123,60 +125,60 @@ namespace Overkiz
 
             if(tmp)
             {
-              Library::lock.acquire();
-              handler = val.handler;
-              handler->count++;
-              symbol = tmp;
-              Library::lock.release();
+              Library::_lock.acquire();
+              _handler = val.handler;
+              _handler->_count++;
+              _symbol = tmp;
+              Library::_lock.release();
             }
           }
         }
 
         virtual ~Reference()
         {
-          if(handler)
+          if(_handler)
           {
-            Library::lock.acquire();
-            handler->count--;
+            Library::_lock.acquire();
+            _handler->_count--;
 
-            if(!handler->count)
+            if(!_handler->_count)
             {
-              Library::handlers.erase(handler->handler);
+              Library::_handlers.erase(_handler->_handler);
             }
 
-            Library::lock.release();
+            Library::_lock.release();
           }
         }
 
         S& operator *()
         {
-          return *symbol;
+          return *_symbol;
         }
 
         const S& operator *() const
         {
-          return *symbol;
+          return *_symbol;
         }
 
         S *operator ->()
         {
-          return symbol;
+          return _symbol;
         }
 
         const S *operator ->() const
         {
-          return symbol;
+          return _symbol;
         }
 
         bool valid() const
         {
-          return symbol != NULL;
+          return _symbol != NULL;
         }
 
       private:
 
-        S *symbol;
-        Handler *handler;
+        S *_symbol;
+        Handler *_handler;
 
         friend class Library;
       };
@@ -218,8 +220,8 @@ namespace Overkiz
     {
       Symbol::Reference<T> ret;
 
-      for(std::set<Symbol *>::iterator i = handler->symbols.begin();
-          i != handler->symbols.end(); ++i)
+      for(std::set<Symbol *>::iterator i = _handler->_symbols.begin();
+          i != _handler->_symbols.end(); ++i)
       {
         if(!strcmp(name, (*i)->name()))
         {
@@ -227,11 +229,11 @@ namespace Overkiz
 
           if(tmp)
           {
-            ret.handler = handler;
-            Library::lock.acquire();
-            handler->count++;
-            Library::lock.release();
-            ret.symbol = tmp;
+            ret._handler = _handler;
+            Library::_lock.acquire();
+            _handler->_count++;
+            Library::_lock.release();
+            ret._symbol = tmp;
             break;
           }
         }
@@ -254,19 +256,19 @@ namespace Overkiz
       virtual ~Handler();
 
     private:
-      int count;
-      void *handler;
-      std::set<Symbol *, Symbol::Comparator> symbols;
+      int _count;
+      void *_handler;
+      std::set<Symbol *, Symbol::Comparator> _symbols;
       friend class Symbol;
       friend class Library;
 
     };
 
-    Handler *handler;
+    Handler *_handler;
 
-    static std::map<void *, Handler> handlers;
-    static Handler *current;
-    static Thread::Lock lock;
+    static std::map<void *, Handler> _handlers;
+    static Handler *_current;
+    static Thread::Lock _lock;
 
     friend class Sym;
   };

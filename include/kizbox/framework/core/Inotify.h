@@ -59,7 +59,24 @@ namespace Overkiz
 
     void process(uint32_t events);
 
+    void watchDirectory(InotifyInstance * inst);
+
+    class FileCreated : public InotifyInstance
+    {
+    public:
+      FileCreated(const std::string & path, uint32_t events, InotifyInstance * inst) : InotifyInstance(path, events), inst(inst) {}
+      virtual ~FileCreated() {}
+      void modified(const uint32_t mask);
+
+    private:
+      InotifyInstance * inst;
+
+      friend class InotifyManager;
+    };
+
     std::map<uint32_t, InotifyInstance *> instances;
+
+    std::vector<Shared::Pointer<FileCreated>> directories;
 
     static Thread::Key<InotifyManager> manager;
 

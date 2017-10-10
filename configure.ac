@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.68])
-AC_INIT([com.kizos.libcore], [1.6.1])
+AC_INIT([com.kizos.libcore], [1.6.2])
 AC_CANONICAL_HOST
 AC_CONFIG_HEADERS([config.h])
 
@@ -246,32 +246,6 @@ AM_CONDITIONAL([DOXYGEN], [test "${doxygen}" = 'true'])
 
 
 AC_ARG_ENABLE(
-  [tests],
-  [AS_HELP_STRING([--enable-tests],							[Enable build tests [default=false]])],
-  [
-    case "${enableval}" in
-    yes) tests='true';;
-    no)  tests='false';;
-    *)   AC_MSG_ERROR([bad value ${enableval} for --enable-tests]);;
-    esac
-  ],
-  [
-    tests='false'
-  ]
-  )
-AS_IF(
-  [test "${tests}" = "true"],
-  [
-    PKG_CHECK_MODULES(CPPUNIT, cppunit >= 1.10)
-    AC_SUBST(CPPUNIT_LIBS)
-    AC_SUBST(CPPUNIT_FLAGS)
-  ]
-  )
-AM_CONDITIONAL([TESTS], [test "${tests}" = "true"])
-
-
-
-AC_ARG_ENABLE(
   [gcov],
   [AS_HELP_STRING([--enable-gcov],							[Enable gcov [default=no]])],
   [
@@ -324,12 +298,36 @@ AM_CONDITIONAL([RELEASE], [test "${release}" = 'true'])
 
 
 
+AC_MSG_CHECKING([use asm coroutine context switch])
+AC_ARG_ENABLE(
+  [asm-coroutine],
+  [AS_HELP_STRING([--enable-asm-coroutine],                                           [Enable asm coroutine switch [default=no]])],
+  [
+    case "${enableval}" in
+    yes) asmcoro='true';;
+    no)  asmcoro='false';;
+    *)   AC_MSG_ERROR([bad value ${asmcoro} for --enable-asm-coroutine]);;
+    esac
+  ],
+  [
+    asmcoro='false'
+  ]
+  )
+if test "${asmcoro}" = 'true' ; then
+  AC_MSG_RESULT([yes])
+        AC_DEFINE([ASM_COROUTINE],                            [1],                                  [Enable asm coroutine switch])
+else
+  AC_MSG_RESULT([no])
+fi
+AM_CONDITIONAL([ASM_COROUTINE], [test "${asmcoro}" = 'true'])
+
+
+
 AC_CONFIG_FILES(
   [
     Makefile
     include/Makefile
     src/Makefile
-    tests/Makefile
     pkg-config.pc
   ]
   )

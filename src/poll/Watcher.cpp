@@ -4,8 +4,8 @@
  *      Copyright (C) 2015 Overkiz SA.
  */
 
-#include <stddef.h>
-#include <stdio.h>
+#include <cstddef>
+#include <cstdio>
 #include <unistd.h>
 
 #include <kizbox/framework/core/Poller.h>

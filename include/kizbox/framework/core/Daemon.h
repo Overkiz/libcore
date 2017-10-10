@@ -8,6 +8,7 @@
 #define OVERKIZ_MISC_DAEMON_H_
 
 #include <string>
+#include <set>
 
 #include <kizbox/framework/core/Node.h>
 
@@ -19,6 +20,22 @@ namespace Overkiz
 
   public:
 
+    class Listener
+    {
+    public:
+      Listener()
+      {
+      }
+      virtual ~Listener()
+      {
+      }
+
+      virtual void willFork() = 0;
+
+      virtual void forked() = 0;
+    };
+
+
     Daemon();
 
     virtual ~Daemon();
@@ -26,6 +43,10 @@ namespace Overkiz
     void run(bool fork);
 
     void checkPidFile();
+
+  protected:
+
+    std::set<Listener *> eventListeners;
 
   private:
 
@@ -37,7 +58,6 @@ namespace Overkiz
 
     int lock;
     std::string pidfile;
-
 
   };
 

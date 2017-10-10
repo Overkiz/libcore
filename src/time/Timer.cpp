@@ -4,12 +4,12 @@
  *      Copyright (C) 2015 Overkiz SA.
  */
 
-#include <stdint.h>
+#include <cstdint>
 #include <sys/types.h>
 #include <unistd.h>
-#include <stdio.h>
-#include <errno.h>
-#include <limits.h>
+#include <cstdio>
+#include <cerrno>
+#include <climits>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
@@ -31,7 +31,7 @@ namespace Overkiz
 
     Real::Manager::Manager()
     {
-      struct itimerspec max = { { LONG_MAX, LONG_MAX }, { 0, 0 } };
+      struct itimerspec max = { { LONG_MAX, 999999999 }, { 0, 0 } };
       fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
 
       if(fd < 0)
@@ -39,8 +39,11 @@ namespace Overkiz
         throw Overkiz::Errno::Exception();
       }
 
-      timerfd_settime(fd, TFD_TIMER_ABSTIME | TFD_TIMER_CANCEL_ON_SET, &max,
-                      NULL);
+      if(timerfd_settime(fd, TFD_TIMER_ABSTIME | TFD_TIMER_CANCEL_ON_SET, &max, nullptr) != 0)
+      {
+        throw Errno::Exception();
+      }
+
       check();
       Watcher::modify(EPOLLIN);
     }
@@ -56,7 +59,7 @@ namespace Overkiz
 
     void Real::Manager::start(Real *timer)
     {
-      if(timer == NULL)
+      if(timer == nullptr)
       {
         throw;
       }
@@ -86,7 +89,7 @@ namespace Overkiz
         }
       }
 
-      if(added == false)
+      if(!added)
       {
         timers.push_back(timer);
       }
@@ -111,7 +114,7 @@ namespace Overkiz
         }
       }
 
-      if(timers.size())
+      if(!timers.empty())
       {
         reschedule();
       }
@@ -124,7 +127,7 @@ namespace Overkiz
     void Real::Manager::reschedule()
     {
       struct itimerspec next = { { 0, 0 }, { 0, 0 } };
-      std::list<Real *>::iterator i = timers.begin();
+      auto i = timers.begin();
 
       if(i == timers.end())
       {
@@ -140,8 +143,29 @@ namespace Overkiz
         next.it_value.tv_nsec = t.nanoseconds; //timer->time.getNanoSeconds() + timer->startTime.getNanoSeconds();
       }
 
-      timerfd_settime(fd, TFD_TIMER_ABSTIME | TFD_TIMER_CANCEL_ON_SET, &next,
-                      NULL);
+      if(timerfd_settime(fd, TFD_TIMER_ABSTIME | TFD_TIMER_CANCEL_ON_SET, &next, nullptr) != 0)
+      {
+        if(errno == ECANCELED)
+        {
+          std::list<Real *> tmp = timers;
+          timers.clear();
+
+          while((i = tmp.begin()) != tmp.end())
+          {
+            Timer::Real *timer = *i;
+            timer->manager = Shared::Pointer<Manager>();
+            timer->cancelled = 1;
+            Poller::get()->resume(timer);
+            i = tmp.erase(i);
+          }
+
+          check();
+        }
+        else
+        {
+          throw Errno::Exception();
+        }
+      }
     }
 
     void Real::Manager::process(uint32_t evts)
@@ -150,7 +174,7 @@ namespace Overkiz
       {
         uint64_t nb;
         std::list<Real *>::iterator i;
-        int ret = read(fd, &nb, sizeof(nb));
+        ssize_t ret = read(fd, &nb, sizeof(nb));
 
         if(ret <= 0)
         {
@@ -200,7 +224,7 @@ namespace Overkiz
           }
         }
 
-        if(timers.size())
+        if(!timers.empty())
         {
           reschedule();
         }
@@ -417,15 +441,14 @@ namespace Overkiz
 
     void Monotonic::Manager::start(Monotonic *timer)
     {
-      if(timer == NULL)
+      if(timer == nullptr)
       {
         throw;
       }
 
       bool added = false;
 
-      for(std::list<Monotonic *>::iterator i = timers.begin(); i != timers.end();
-          ++i)
+      for(auto i = timers.begin(); i != timers.end(); ++i)
       {
         Monotonic *current = *i;
 
@@ -437,7 +460,7 @@ namespace Overkiz
         }
       }
 
-      if(added == false)
+      if(!added)
       {
         timers.push_back(timer);
       }
@@ -448,8 +471,7 @@ namespace Overkiz
 
     void Monotonic::Manager::stop(Monotonic *timer)
     {
-      for(std::list<Monotonic *>::iterator i = timers.begin(); i != timers.end();
-         )
+      for(auto i = timers.begin(); i != timers.end();)
       {
         Monotonic *current = *i;
 
@@ -463,7 +485,7 @@ namespace Overkiz
         }
       }
 
-      if(timers.size())
+      if(!timers.empty())
       {
         reschedule();
       }
@@ -476,7 +498,7 @@ namespace Overkiz
     void Monotonic::Manager::reschedule()
     {
       struct itimerspec next = { { 0, 0 }, { 0, 0 } };
-      std::list<Monotonic *>::iterator i = timers.begin();
+      auto i = timers.begin();
 
       if(i == timers.end())
       {
@@ -492,7 +514,10 @@ namespace Overkiz
         next.it_value.tv_nsec = t.nanoseconds; //timer->time.getNanoSeconds() + timer->startTime.getNanoSeconds();
       }
 
-      timerfd_settime(fd, TFD_TIMER_ABSTIME, &next, NULL);
+      if(timerfd_settime(fd, TFD_TIMER_ABSTIME, &next, nullptr) != 0)
+      {
+        throw Errno::Exception();
+      }
     }
 
     void Monotonic::Manager::process(uint32_t evts)
@@ -535,7 +560,7 @@ namespace Overkiz
           }
         }
 
-        if(timers.size())
+        if(!timers.empty())
         {
           reschedule();
         }
@@ -749,7 +774,7 @@ namespace Overkiz
         this->delegate = delegate;
     }
 
-    void Concrete::Real::clearDelegate(void)
+    void Concrete::Real::clearDelegate()
     {
       this->delegate = nullptr;
     }
@@ -791,7 +816,7 @@ namespace Overkiz
         this->delegate = delegate;
     }
 
-    void Concrete::Monotonic::clearDelegate(void)
+    void Concrete::Monotonic::clearDelegate()
     {
       this->delegate = nullptr;
     }

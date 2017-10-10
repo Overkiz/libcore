@@ -5,12 +5,12 @@
  */
 
 #include <fcntl.h>
-#include <errno.h>
+#include <cerrno>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <limits.h>
+#include <climits>
 
 #include <kizbox/framework/core/Errno.h>
 #include <kizbox/framework/core/Log.h>

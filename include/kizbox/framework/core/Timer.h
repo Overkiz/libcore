@@ -220,7 +220,7 @@ namespace Overkiz
 
         void setDelegate(Delegate * delegate);
 
-        void clearDelegate(void);
+        void clearDelegate();
 
       private:
 
@@ -252,7 +252,7 @@ namespace Overkiz
 
         void setDelegate(Delegate * delegate);
 
-        void clearDelegate(void);
+        void clearDelegate();
 
       private:
 

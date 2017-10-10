@@ -4,7 +4,7 @@
  *      Copyright (C) 2015 Overkiz SA.
  */
 
-#include <stdio.h>
+#include <cstdio>
 
 #include "Date.h"
 

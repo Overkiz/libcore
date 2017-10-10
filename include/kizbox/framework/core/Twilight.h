@@ -58,9 +58,9 @@ namespace Overkiz
     static Date::UTC dusk(const Date::Absolute& time, double latitude,
                           double longitude, const Angle angle=DEFAULT_ANGLE);
 
-    static const Twilight::Angle getAngleFromString(const std::string& angle);
+    static Twilight::Angle getAngleFromString(const std::string& angle);
 
-    static const std::string getStringFromAngle(const Twilight::Angle angle);
+    static std::string getStringFromAngle(const Twilight::Angle angle);
 
   private:
 

@@ -12,6 +12,7 @@
 #include <set>
 
 #include <kizbox/framework/core/Watcher.h>
+#include <kizbox/framework/core/Poller.h>
 
 namespace Overkiz
 {
@@ -47,7 +48,7 @@ namespace Overkiz
 
     struct signalfd_siginfo info;
 
-    class Manager: public Watcher
+    class Manager: public Watcher, private Daemon::Listener
     {
     public:
 
@@ -63,14 +64,14 @@ namespace Overkiz
 
       void process(uint32_t events);
 
-      static void reload();
-
-      static void clean();
-
       static Manager & get();
 
+      void willFork();
+
+      void forked();
+
       sigset_t mask;
-      std::set<Handler *> handlers[_NSIG - 1];
+      std::map<uint32_t, std::set<Handler *>> handlers;
 
       static Thread::Key<Manager> key;
 

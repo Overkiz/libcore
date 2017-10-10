@@ -6,7 +6,7 @@
 
 #include <unistd.h>
 #include <sys/eventfd.h>
-#include <stdio.h>
+#include <cstdio>
 #include <algorithm>
 
 #include "Poller.h"
@@ -84,7 +84,7 @@ namespace Overkiz
       wevents.push_back(evt);
     }
 
-    if(wevents.size())
+    if(!wevents.empty())
     {
       writeEvent();
     }
@@ -132,23 +132,12 @@ namespace Overkiz
         std::vector<Event*> tmpEvent = wevents;
         wevents.clear();
 
-        for(auto it = tmpEvent.begin(); it != tmpEvent.end(); it++)
+        for(auto e : tmpEvent)
         {
-          Event* e = *it;
-
           //Resume only IDLE tasks
           if(e->status() != RUNNING && e->status() != PAUSED)
           {
             Poller::get()->resume(e);
-          }
-          else
-          {
-            auto it2 = std::find(wevents.begin(), wevents.end(), e);
-
-            if(it2 == wevents.end())
-            {
-              wevents.push_back(e);
-            }
           }
         }
 

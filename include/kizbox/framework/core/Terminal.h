@@ -14,6 +14,7 @@
 #include <kizbox/framework/core/Stream.h>
 #include <kizbox/framework/core/Watcher.h>
 #include <kizbox/framework/core/Exception.h>
+#include <kizbox/framework/core/Errno.h>
 
 namespace Overkiz
 {
@@ -51,6 +52,16 @@ namespace Overkiz
       public:
 
         virtual ~Close()
+        {
+        }
+        const char *getId() const;
+      };
+
+      class Locked: public Overkiz::Exception
+      {
+      public:
+
+        virtual ~Locked()
         {
         }
         const char *getId() const;
@@ -96,6 +107,17 @@ namespace Overkiz
         int errorId;
       };
 
+
+      class Latency: public Overkiz::Exception
+      {
+      public:
+
+        virtual ~Latency()
+        {
+        }
+        const char *getId() const;
+      };
+
     }
 
     class Base: public virtual Stream::Base, public Watcher
@@ -105,7 +127,7 @@ namespace Overkiz
       /**
        * Constructor
        */
-      Base();
+      Base(bool lock=true);
 
       /**
        * Destructor
@@ -122,7 +144,7 @@ namespace Overkiz
       /**
        * Method used to open the Terminal
        */
-      void open() throw(Exception::Open, Exception::Configuration);
+      void open() throw(Exception::Open, Exception::Configuration, Exception::Locked);
 
       /**
        * Method used to close the Terminal
@@ -179,6 +201,20 @@ namespace Overkiz
       void setLine(cc_t c_line) throw(Exception::Configuration);
 
       /**
+       * Method used to set low latency setting
+       * Default enabled on ftdi usb-serial
+       * Should be used after calling "open"
+       */
+      void setLowLatency(bool isLowLatency) throw(Exception::Configuration, Overkiz::Errno::Exception);
+
+      /**
+       * Method used to set latency setting
+       * Default enabled on ftdi usb-serial
+       * Should be used after calling "open"
+       */
+      void setLatency(uint32_t latencyTimeInMs) throw(Exception::Configuration, Overkiz::Errno::Exception, Exception::Latency);
+
+      /**
        * Method used to set the control characters on the Terminal's configuration
        * Should be used after calling "open"
        */
@@ -203,32 +239,37 @@ namespace Overkiz
       /**
        * pathname of the Terminal
        */
-      std::string path;
+      std::string _path;
 
       /**
        * access mode of the Terminal
        */
-      int flags;
+      int _flags;
 
       /**
        * configuration of the Terminal
        */
-      struct termios config;
+      struct termios _config;
 
       /**
        * delegate of the Terminal
        */
-      Stream::Delegate * delegate;
+      Stream::Delegate * _delegate;
 
       /**
        * current status of the Terminal
        */
-      int currentStatus;
+      int _currentStatus;
 
       /**
        * status the Terminal is waiting for
        */
-      int waitStatus;
+      int _waitStatus;
+
+      /*
+       *  terminal file descriptor locked or not
+       */
+      const bool _lock;
     };
 
     class Input: public virtual Base, public Stream::Input

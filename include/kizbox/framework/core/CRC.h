@@ -85,7 +85,6 @@ namespace Overkiz
     void init()
     {
       T tmp;
-      int size = sizeof(T) - 1;
 
       for(int i = 0; i < 256; ++i)
       {

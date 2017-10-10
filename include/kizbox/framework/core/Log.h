@@ -137,14 +137,15 @@ namespace Overkiz
 
       static Overkiz::Log::TimedMsg getTimed(const std::string & timed);
 
-      void updateIdent(const std::string & ident);
-
-      void defaultIdent();
-
       #ifdef __GNUC__
       __attribute__((format(printf, 3, 4)))
       #endif
       void print(const Overkiz::Log::Priority priority, const char * format, ...);
+
+      #ifdef __GNUC__
+      __attribute__((format(printf, 4, 5)))
+      #endif
+      void print(const std::string & ident, const Overkiz::Log::Priority priority, const char * format, ...);
 
       void setFacility(const Overkiz::Log::Priority facility);
 
@@ -159,6 +160,13 @@ namespace Overkiz
                   va_list arguments);
 
     private:
+
+      void updateIdent(const std::string & ident);
+
+      void defaultIdent();
+
+      void consoleOutput(const Overkiz::Log::Priority priority, const char * format,
+                         va_list arguments);
 
       unsigned char _facility;
       Overkiz::Log::Priority _printLevel;

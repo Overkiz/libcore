@@ -32,6 +32,7 @@ libCore_la_SOURCES =  filesystem/Directory.cpp \
                       Process.cpp \
                       Thread.cpp
 
+if ASM_COROUTINE
 # Use conditional AM since there is a bug in automake for subdir-objects with vars
 # -> libCore_la_SOURCES +=  arch/$(arch)/Context.cpp
 if ARCH_ARM
@@ -42,6 +43,7 @@ libCore_la_SOURCES +=  arch/i386/Context.cpp
 endif
 if ARCH_x86_64
 libCore_la_SOURCES +=  arch/x86_64/Context.cpp
+endif
 endif
 
 libCore_la_LIBADD = -lpthread -lrt -ldl

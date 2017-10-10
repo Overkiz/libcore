@@ -13,6 +13,10 @@
 #include <kizbox/framework/core/Context.h>
 #include <kizbox/framework/core/Shared.h>
 
+#ifndef ASM_COROUTINE
+  #include <ucontext.h>
+#endif
+
 namespace Overkiz
 {
 
@@ -118,6 +122,10 @@ namespace Overkiz
      */
     static Shared::Pointer<Coroutine>& self();
 
+    #ifndef ASM_COROUTINE
+    static void launchCoro(Coroutine * coroutine);
+    #endif
+
   protected:
 
     /**
@@ -159,6 +167,10 @@ namespace Overkiz
     int valgrind;
     #endif
     static Thread::Key<Coroutine> current;
+
+    #ifndef ASM_COROUTINE
+    ucontext_t ctx;
+    #endif
 
     template<typename T> friend class Overkiz::Shared::Pointer;
   };

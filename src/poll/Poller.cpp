@@ -4,7 +4,7 @@
  *      Copyright (C) 2015 Overkiz SA.
  */
 
-#include <errno.h>
+#include <cerrno>
 
 #include <config.h>
 #include <kizbox/framework/core/Watcher.h>
@@ -22,7 +22,7 @@ namespace Overkiz
 {
 
   Poller::Poller(bool interruptibleTasks, bool usePidFile) :
-    taskManager(nullptr), inter(interruptibleTasks)
+    taskManager(nullptr), inter(interruptibleTasks), abort(false)
   {
     count = 0;
     state = STOPPED;
@@ -50,6 +50,21 @@ namespace Overkiz
   bool Poller::isInterruptible() const
   {
     return inter;
+  }
+
+  void Poller::stop()
+  {
+    abort = true;
+  }
+
+  void Poller::addListener(Listener * list)
+  {
+    eventListeners.insert(list);
+  }
+
+  void Poller::removeListener(Listener * list)
+  {
+    eventListeners.erase(list);
   }
 
   Poller::~Poller()
@@ -159,9 +174,11 @@ namespace Overkiz
 
     state = WAITING;
 
+    abort = false;
+
     run(daemonize);
 
-    while(count)
+    while(count && !abort)
     {
       int ret = 0;
       ret = epoll_wait(fd, events, MAX_EVENTS, -1);
@@ -212,7 +229,7 @@ namespace Overkiz
           reset(watcher);
 
           //Check for Unrecoverable exceptions
-          if(std::string(Coroutine::Exception().getId()).compare(e.getId()) == 0)
+          if(strcmp(Coroutine::Exception().getId(), e.getId()) == 0)
           {
             OVK_CRITICAL("Unrecoverable exception.");
             throw;
@@ -242,9 +259,9 @@ namespace Overkiz
     state = STOPPED;
   }
 
-  Shared::Pointer<Poller>& Poller::get(bool interruptibleTasks, bool usePidFile)
+  Shared::Pointer<Poller>& Poller::get(bool interruptibleTasks, bool usePidFile, bool forcedNew)
   {
-    if(poller->empty())
+    if(poller->empty() || forcedNew)
     {
       OVK_DEBUG("Create new poller with %s tasks%s.", interruptibleTasks ? "interruptible" : "simple", interruptibleTasks ? " !! Check your stackSize !!" : "");
       poller = Shared::Pointer<Poller>::create(interruptibleTasks, usePidFile);

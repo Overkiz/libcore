@@ -26,7 +26,7 @@ namespace Overkiz
   {
     void *libHandler = dlopen(pluginPath.c_str(), RTLD_LAZY);
 
-    if(libHandler == NULL)
+    if(libHandler == nullptr)
     {
       Overkiz::PluginLoader::OpenException e(pluginPath, pluginName,
                                              dlerror());
@@ -38,7 +38,7 @@ namespace Overkiz
     PluginGetter pluginGetter = (PluginGetter) dlsym(libHandler,
                                 getPluginMethodName.c_str());
 
-    if(pluginGetter == NULL)
+    if(pluginGetter == nullptr)
     {
       Overkiz::PluginLoader::SymbolException e(pluginPath, pluginName,
           dlerror());

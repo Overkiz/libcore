@@ -70,7 +70,7 @@ namespace Overkiz
       }
     }
 
-    if(!dest.size() % 4)
+    if((dest.size() % 4) > 0)
     {
       dest.append(4 - (dest.size() % 4), '=');
     }
@@ -122,7 +122,7 @@ namespace Overkiz
       }
     }
 
-    if(!dest.size() % 4)
+    if((dest.size() % 4) > 0)
     {
       dest.append(4 - (dest.size() % 4), '=');
     }

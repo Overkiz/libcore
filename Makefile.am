@@ -1,4 +1,4 @@
-SUBDIRS = include src tests
+SUBDIRS = include src
 
 if PKGCONFIG
 pkgconfigdir =   ${prefix}/lib/pkgconfig

@@ -4,13 +4,23 @@
  *      Copyright (C) 2015 Overkiz SA.
  */
 
-#include <string.h>
+#include <cstring>
 #include <dlfcn.h>
+#include <cxxabi.h>
 
 #include "Library.h"
 
 namespace Overkiz
 {
+
+  const std::string demangle(const char *name)
+  {
+    int status = -4; /* Meaningless value. Real ones start at -3 */
+    char *res = abi::__cxa_demangle(name, nullptr, nullptr, &status);
+    const std::string ret_val((status == 0) ? res : name);
+    free(res);
+    return ret_val;
+  }
 
   Library::Symbol::Symbol()
   {
@@ -28,40 +38,40 @@ namespace Overkiz
 
   Library::Library()
   {
-    handler = NULL;
+    _handler = nullptr;
   }
 
   Library::Library(const Library& val)
   {
-    handler = NULL;
+    _handler = nullptr;
     operator = (val);
   }
 
   Library::~Library()
   {
-    if(handler)
+    if(_handler)
     {
-      Library::lock.acquire();
-      handler->count--;
+      Library::_lock.acquire();
+      _handler->_count--;
 
-      if(!handler->count)
+      if(!_handler->_count)
       {
-        Library::handlers.erase(handler->handler);
+        Library::_handlers.erase(_handler->_handler);
       }
 
-      Library::lock.release();
+      Library::_lock.release();
     }
   }
 
   Library& Library::operator = (const Library& val)
   {
-    handler = val.handler;
+    _handler = val._handler;
 
-    if(handler)
+    if(_handler)
     {
-      Library::lock.acquire();
-      handler->count++;
-      Library::lock.release();
+      Library::_lock.acquire();
+      _handler->_count++;
+      Library::_lock.release();
     }
 
     return *this;
@@ -69,31 +79,31 @@ namespace Overkiz
 
   bool Library::valid() const
   {
-    return handler != NULL;
+    return _handler != nullptr;
   }
 
   Library Library::open(const char *path)
   {
     Library ret;
-    lock.acquire();
+    _lock.acquire();
     Handler h;
-    current = &h;
+    _current = &h;
     void *handler = dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
 
     if(handler)
     {
-      std::map<void *, Handler>::iterator i = handlers.find(handler);
+      auto i = _handlers.find(handler);
 
-      if(i != handlers.end())
+      if(i != _handlers.end())
       {
-        ret.handler = & (i->second);
-        ret.handler->count++;
+        ret._handler = & (i->second);
+        ret._handler->_count++;
       }
       else
       {
-        handlers[handler] = h;
-        ret.handler = & (handlers[handler]);
-        ret.handler->count++;
+        _handlers[handler] = h;
+        ret._handler = & (_handlers[handler]);
+        ret._handler->_count++;
       }
     }
     else
@@ -101,31 +111,31 @@ namespace Overkiz
       printf("dlopen error = %s\n", dlerror());
     }
 
-    current = NULL;
-    lock.release();
+    _current = nullptr;
+    _lock.release();
     return ret;
   }
 
   Library::Handler::Handler()
   {
-    count = 0;
-    handler = 0;
+    _count = 0;
+    _handler = nullptr;
   }
 
   Library::Handler::~Handler()
   {
-    current = this;
+    _current = this;
 
-    if(handler)
+    if(_handler)
     {
-      dlclose(handler);
+      dlclose(_handler);
     }
 
-    current = NULL;
+    _current = nullptr;
   }
 
-  std::map<void *, Library::Handler> Library::handlers;
-  Library::Handler *Library::current;
-  Thread::Lock Library::lock;
+  std::map<void *, Library::Handler> Library::_handlers;
+  Library::Handler *Library::_current;
+  Thread::Lock Library::_lock;
 
 }

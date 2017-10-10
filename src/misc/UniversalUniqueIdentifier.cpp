@@ -7,7 +7,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <string.h>
+#include <cstring>
 #include <unistd.h>
 
 #include "UniversalUniqueIdentifier.h"
@@ -44,22 +44,42 @@ namespace Overkiz
 
   void UniversalUniqueIdentifier::generate()
   {
-    int fd = open("/dev/urandom", O_RDONLY);
+    int fd = open("/proc/sys/kernel/random/uuid", O_RDONLY);
 
-    if(fd < 0)
-      throw Overkiz::Errno::Exception();
-
-    ssize_t ret = ::read(fd, identifier, sizeof(identifier));
-
-    if(ret != sizeof(identifier))
+    if(fd > 0)
     {
-      throw Overkiz::Errno::Exception();
+      char uuid[37];
+      ssize_t ret = ::read(fd, uuid, sizeof(uuid));
+
+      if(ret != sizeof(uuid))
+      {
+        close(fd);
+        throw Overkiz::Errno::Exception();
+      }
+
+      build(uuid);
+    }
+    else
+    {
+      fd = open("/dev/urandom", O_RDONLY);
+
+      if(fd < 0)
+        throw Overkiz::Errno::Exception();
+
+      ssize_t ret = ::read(fd, identifier, sizeof(identifier));
+
+      if(ret != sizeof(identifier))
+      {
+        close(fd);
+        throw Overkiz::Errno::Exception();
+      }
+
+      identifier[8] &= 0x3F;
+      identifier[8] |= 0x80;
+      identifier[6] &= 0x0F;
+      identifier[6] |= 0x40;
     }
 
-    identifier[8] &= 0x3F;
-    identifier[8] |= 0x80;
-    identifier[6] &= 0x0F;
-    identifier[6] |= 0x40;
     ::close(fd);
   }
 
@@ -90,7 +110,7 @@ namespace Overkiz
   {
     uint8_t nil[16];
     memset(nil, 0, sizeof(nil));
-    return memcmp(identifier, nil, sizeof(identifier)) == 0 ? true : false;
+    return memcmp(identifier, nil, sizeof(identifier)) == 0;
   }
   void UniversalUniqueIdentifier::build(const char * uuid)
   throw(Overkiz::UniversalUniqueIdentifier::MalformedException)

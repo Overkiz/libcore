@@ -9,6 +9,7 @@
 
 #include <limits.h>
 #include <time.h>
+#include <string>
 
 #include <kizbox/framework/core/Exception.h>
 
@@ -26,7 +27,7 @@ namespace Overkiz
   namespace Time
   {
 
-
+#define NANO_TO_MICRO_SECOND 1000
 #define NANO_TO_MILLI_SECOND 1000000
 #define NANO_TO_SECOND       1000000000
 
@@ -73,10 +74,30 @@ namespace Overkiz
 
     };
 
+    class Base
+    {
+    public:
+      Base();
+      virtual ~Base();
+
+      static Elapsed normalize(const Elapsed & elapsed);
+
+      static std::string toString(const timespec & ts);
+
+      static std::string toString(const time_t & seconds, const long & nanoseconds);
+
+    protected:
+
+      void normalize();
+
+      struct timespec ts;
+
+    };
+
     /**
      * Class defining a Real time (time elapsed since the epoch)
      */
-    class Real
+    class Real : public Base
     {
     public:
 
@@ -246,16 +267,20 @@ namespace Overkiz
        */
       static bool reliable();
 
-    private:
-
-      struct timespec ts;
+      /**
+       * toString
+       *
+       * @param
+       * @return a string with the attributes formatted.
+       */
+      std::string toString() const;
 
     };
 
     /**
      * Class defining a Monotonic time (time elapsed since the epoch)
      */
-    class Monotonic
+    class Monotonic : public Base
     {
     public:
       /**
@@ -418,9 +443,14 @@ namespace Overkiz
 
       bool operator == (const Elapsed& time) const;
 
-    private:
+      /**
+       * toString
+       *
+       * @param
+       * @return a string with the attributes formatted.
+       */
+      std::string toString() const;
 
-      struct timespec ts;
     };
 
   }

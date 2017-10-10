@@ -108,25 +108,75 @@ namespace Overkiz
 
     void Logger::updateIdent(const std::string & ident)
     {
-      _temporaryIdent = ident;
       closelog();
+      _temporaryIdent = ident;
       openlog(_temporaryIdent.c_str(), _options, _facility);
     }
 
     void Logger::defaultIdent()
     {
-      _temporaryIdent.clear();
       closelog();
+      _temporaryIdent.clear();
       openlog(NULL, _options, _facility);
     }
 
-    void Logger::print(const Overkiz::Log::Priority priority, const char * format,
-                       ...)
+    void Logger::print(const Overkiz::Log::Priority priority, const char * format, ...)
     {
+      if(!_temporaryIdent.empty())
+      {
+        defaultIdent();
+      }
+
       va_list arguments;
       va_start(arguments, format);
-      vprint(priority, format, arguments);
+      vsyslog(LOG_MAKEPRI(_facility, priority), format, arguments);
       va_end(arguments);
+
+      if(priority <= _printLevel)
+      {
+        va_start(arguments, format);
+        consoleOutput(priority, format, arguments);
+        va_end(arguments);
+      }
+    }
+
+    void Logger::vprint(const Overkiz::Log::Priority priority, const char * format,
+                        va_list arguments)
+    {
+      if(!_temporaryIdent.empty())
+      {
+        defaultIdent();
+      }
+
+      va_list args2;
+      va_copy(args2, arguments);
+      vsyslog(LOG_MAKEPRI(_facility, priority), format, args2);
+      va_end(args2);
+
+      if(priority <= _printLevel)
+      {
+        consoleOutput(priority, format, arguments);
+      }
+    }
+
+    void Logger::print(const std::string & ident, const Overkiz::Log::Priority priority,  const char * format, ...)
+    {
+      if(_temporaryIdent != ident)
+      {
+        updateIdent(ident);
+      }
+
+      va_list arguments;
+      va_start(arguments, format);
+      vsyslog(LOG_MAKEPRI(_facility, priority), format, arguments);
+      va_end(arguments);
+
+      if(priority <= _printLevel)
+      {
+        va_start(arguments, format);
+        consoleOutput(priority, format, arguments);
+        va_end(arguments);
+      }
     }
 
     void Logger::setFacility(const Overkiz::Log::Priority facility)
@@ -144,26 +194,9 @@ namespace Overkiz
       return _printLevel;
     }
 
-    void Logger::vprint(const Overkiz::Log::Priority priority, const char * format,
-                        va_list arguments)
+    void Logger::consoleOutput(const Overkiz::Log::Priority priority, const char * format,
+                               va_list arguments)
     {
-      char buffer[LOG_MAX_MESSAGE_SIZE];
-      int nb = vsnprintf(buffer, sizeof(buffer), format, arguments);
-      buffer[LOG_MAX_MESSAGE_SIZE - 1] = '\0';
-      buffer[LOG_MAX_MESSAGE_SIZE - 2] = '.';
-      buffer[LOG_MAX_MESSAGE_SIZE - 3] = '.';
-      buffer[LOG_MAX_MESSAGE_SIZE - 4] = '.';
-
-      // no error and data
-      if(nb < 1)
-        return;
-
-      syslog(LOG_MAKEPRI(_facility, priority), "%s", buffer);
-
-      if(!(priority <= _printLevel
-           && (_printLevel < OVK_SILENT && _printLevel > OVK_UNKNOWN_PRIORITY)))
-        return;
-
       if(timed != OVK_TIME_UNKNOWN)
       {
         struct timeval tv2, res;
@@ -175,7 +208,7 @@ namespace Overkiz
           gettimeofday(&tv1, NULL);
         }
 
-        FILE * fs = priority < OVK_WARNING ? stderr : stdout;
+        FILE * fs = priority < OVK_NOTICE ? stderr : stdout;
         fprintf(fs,"%08lu.%03lu ", res.tv_sec*1000 + res.tv_usec/1000 , res.tv_usec%1000);
       }
 
@@ -185,23 +218,32 @@ namespace Overkiz
         case OVK_EMERGENCY:
         case OVK_CRITICAL:
         case OVK_ERROR:
-          fprintf(stderr, LOG_FORMAT_BOLD LOG_FORMAT_RED "%s" LOG_FORMAT_RESET_ALL"\n", buffer);
+          fprintf(stderr, LOG_FORMAT_BOLD LOG_FORMAT_RED);
+          vfprintf(stderr, format, arguments);
+          fprintf(stderr, LOG_FORMAT_RESET_ALL"\n");
           break;
 
         case OVK_WARNING:
-          fprintf(stderr, LOG_FORMAT_YELLOW "%s" LOG_FORMAT_RESET_ALL"\n", buffer);
+          fprintf(stderr, LOG_FORMAT_YELLOW);
+          vfprintf(stderr, format, arguments);
+          fprintf(stderr, LOG_FORMAT_RESET_ALL"\n");
           break;
 
         case OVK_NOTICE:
-          fprintf(stdout, LOG_FORMAT_GREEN "%s" LOG_FORMAT_RESET_ALL"\n", buffer);
+          fprintf(stdout, LOG_FORMAT_GREEN);
+          vfprintf(stdout, format, arguments);
+          fprintf(stdout, LOG_FORMAT_RESET_ALL"\n");
           break;
 
         case OVK_INFO:
-          fprintf(stdout, "%s\n", buffer);
+          vfprintf(stdout, format, arguments);
+          fprintf(stdout, "\n");
           break;
 
         case OVK_DEBUG:
-          fprintf(stdout, LOG_FORMAT_BLUE "%s" LOG_FORMAT_RESET_ALL"\n", buffer);
+          fprintf(stdout, LOG_FORMAT_BLUE);
+          vfprintf(stdout, format, arguments);
+          fprintf(stdout, LOG_FORMAT_RESET_ALL"\n");
           break;
 
         default:

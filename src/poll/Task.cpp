@@ -52,7 +52,7 @@ namespace Overkiz
 
   bool Task::isEnabled()
   {
-    return !!enabled;
+    return enabled;
   }
 
   Task::SimpleManager::SimpleManager() :
@@ -176,6 +176,9 @@ namespace Overkiz
     {
       //It's not possible to remove this coroutine here, because we are using his stack
       isRemoved = true;
+
+      if(coroutines.find(task) != coroutines.end())
+        coroutines[task]->task = nullptr;
     }
     else
     {

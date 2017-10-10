@@ -222,12 +222,18 @@ namespace Overkiz
      *
      * @return
      */
-    static Shared::Pointer<Poller>& get(bool interruptibleTasks = true, bool usePidFile = true);
+    static Shared::Pointer<Poller>& get(bool interruptibleTasks = true, bool usePidFile = true, bool forcedNew = false);
 
     /**
      * Get interruptible feature from task manager.
      */
     bool isInterruptible() const;
+
+    void stop();
+
+    void addListener(Daemon::Listener * list);
+
+    void removeListener(Daemon::Listener * list);
 
   protected:
 
@@ -275,6 +281,7 @@ namespace Overkiz
 
     Task::IManager * taskManager;
     bool inter;
+    bool abort;
 
     static Thread::Key<Poller> poller;
 

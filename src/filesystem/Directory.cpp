@@ -5,6 +5,7 @@
  */
 
 #include "Directory.h"
+#include <kizbox/framework/core/Errno.h>
 
 namespace Overkiz
 {
@@ -15,7 +16,7 @@ namespace Overkiz
     Directory::Iterator::Iterator(const std::string & path) :
       path(path)
     {
-      this->directory = NULL;
+      this->directory = nullptr;
     }
 
     Directory::Iterator::~Iterator()
@@ -25,7 +26,7 @@ namespace Overkiz
         closedir(this->directory);
       }
 
-      this->directory = NULL;
+      this->directory = nullptr;
     }
 
     bool Directory::Iterator::operator != (const Iterator & b)
@@ -42,23 +43,29 @@ namespace Overkiz
 
     Directory::Iterator & Directory::Iterator::operator ++()
     {
-      bool test = false;
-
       if(this->directory)
       {
+        bool test = false;
+        /* to distinguish end of stream and from an
+        error, set errno to zero before calling readdir() and then check the
+        value of errno if NULL is returned. */
+        errno = 0;
         struct dirent * directoryInfo = readdir(this->directory);
+
+        if(errno)
+          throw Overkiz::Errno::Exception();
 
         if(directoryInfo)
         {
           test = true;
           this->node = Node(this->path + "/" + directoryInfo->d_name);
         }
-      }
 
-      if(!test)
-      {
-        closedir(this->directory);
-        this->directory = NULL;
+        if(!test)
+        {
+          closedir(this->directory);
+          this->directory = nullptr;
+        }
       }
 
       return (*this);
@@ -66,16 +73,19 @@ namespace Overkiz
 
     Directory::Iterator & Directory::Iterator::operator --()
     {
-      bool test = false;
-
       if(this->directory)
       {
+        bool test = false;
         off_t pos = telldir(this->directory);
 
         if(pos >= 0)
         {
           seekdir(this->directory, (pos - 1));
+          errno = 0;
           struct dirent * directoryInfo = readdir(this->directory);
+
+          if(errno)
+            throw Overkiz::Errno::Exception();
 
           if(directoryInfo)
           {
@@ -83,12 +93,12 @@ namespace Overkiz
             this->node = Node(this->path + "/" + directoryInfo->d_name);
           }
         }
-      }
 
-      if(!test)
-      {
-        closedir(this->directory);
-        this->directory = NULL;
+        if(!test)
+        {
+          closedir(this->directory);
+          this->directory = nullptr;
+        }
       }
 
       return (*this);
@@ -144,11 +154,6 @@ namespace Overkiz
                              directoryInfo->d_name);
             }
           }
-          else
-          {
-            closedir(it.directory);
-            it.directory = NULL;
-          }
         }
       }
       else
@@ -168,9 +173,8 @@ namespace Overkiz
         if(it.directory)
         {
           closedir(it.directory);
+          it.directory = nullptr;
         }
-
-        it.directory = NULL;
       }
       else
       {

@@ -12,6 +12,8 @@
 #include <stdio.h>
 
 #include <kizbox/framework/core/Shared.h>
+#include <kizbox/framework/core/Exception.h>
+#include <kizbox/framework/core/Errno.h>
 
 namespace Overkiz
 {
@@ -835,7 +837,7 @@ namespace Overkiz
      *
      * @param child : the new child to add.
      */
-    static void addChild(Shared::Pointer<Thread>& child);
+    static void addChild(Shared::Pointer<Thread>& child) throw(Overkiz::Errno::Exception);
 
     /**
      * Remove a child thread from this thread.
@@ -954,7 +956,7 @@ namespace Overkiz
      *  the child entry is removed from the children vector.
      *
      */
-    void checkChildren();
+    void checkChildren() throw(Overkiz::Errno::Exception);
 
     /**
      * Constructor with default configuration.
